@@ -1,0 +1,14 @@
+{
+  "threshold": 0.95,
+  "recall": 0.131875,
+  "false_alarm": 0.002857142857142857,
+  "trained_with_real_voice": true,
+  "real_recall": 0.275,
+  "tts_recall": 0.00390625,
+  "real_false_alarm": 0.0,
+  "similar_false_alarm": 0.0,
+  "background_false_alarm": 0.0033333333333333335,
+  "sample_rate": 16000,
+  "window_samples": 24000,
+  "tflite_max_diff": 2.384185791015625e-07
+}

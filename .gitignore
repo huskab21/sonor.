@@ -1,0 +1,25 @@
+# Нууц түлхүүр, токен
+.env
+.env.*
+
+# Хувийн дуу бичлэг, сургалтын өгөгдөл (хүмүүсийн хоолой: нийтэд гаргахгүй)
+sound_app/dataset/
+sound_app/chimege_voices/
+sound_app/names/
+
+# Python орчин, түр файл
+sound_app/venv/
+__pycache__/
+*.pyc
+
+# Flutter build (жинхэнэ хавтас болон iCloud-аас гадагш заасан холбоос)
+mongol_sound_app/build
+mongol_sound_app/build/
+
+# macOS
+.DS_Store
+
+# Дотоод ажлын тэмдэглэл (төхөөрөмжийн дугаар, өдрийн тайлан): нийтийн репод оруулахгүй
+mongol_sound_app/TAILAN.md
+mongol_sound_app/CLAUDE.md
+mongol_sound_app/.claude/
