@@ -1,8 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'glass.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
 import 'transcriber.dart';
+
+/// Дохионы хэлээр хариулах «Sign Bridge» аппыг нээх холбоос. ТААМАГ: жинхэнэ холбоосыг
+/// (URL scheme) аппын хөгжүүлэгчээс аваад энд солино.
+const String signBridgeUrl = 'signbridge://';
 
 /// Яриагаар солилцсон нэг мөр: бусдын хэлсэн (бичвэр болгосон) эсвэл миний бичсэн.
 class WorkspaceMessage {
@@ -158,6 +164,27 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     );
   }
 
+  /// Sign Bridge апп руу үсэрнэ. Суугаагүй бол мэдэгдэнэ.
+  Future<void> _openSignBridge() async {
+    var opened = false;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      try {
+        opened =
+            await const MethodChannel('sonor/device')
+                .invokeMethod<bool>('openUrl', {'url': signBridgeUrl}) ??
+            false;
+      } catch (_) {
+        // Нээж чадаагүй: доорх мэдэгдэл гарна
+      }
+    }
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sign Bridge апп энэ утсанд суугаагүй байна.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final faint = faintOf(context);
@@ -257,6 +284,15 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                         tooltip: 'Харуулах',
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _openSignBridge,
+                  icon: const Icon(Icons.sign_language),
+                  label: const Text('Sign Bridge-ээр хариулах'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
                   ),
                 ),
                 const SizedBox(height: 6),

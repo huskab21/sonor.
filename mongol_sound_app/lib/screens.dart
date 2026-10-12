@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'auth.dart';
 import 'glass.dart';
+import 'rewards.dart';
 import 'settings.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
 import 'sounds.dart';
@@ -638,6 +639,8 @@ class ProfileScreen extends StatelessWidget {
         AccountCard(auth: auth),
         const _SectionTitle('Харагдац'),
         AppearanceCard(settings: settings),
+        const _SectionTitle('Урамшуулал'),
+        RewardsCard(settings: settings),
       ],
     );
   }

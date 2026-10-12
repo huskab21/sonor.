@@ -34,6 +34,7 @@ class SoundEvent {
     this.threshold, {
     this.urgent = false,
     this.defaultOn = true,
+    this.mark,
   });
   final String id;
   final SoundCategory category;
@@ -43,6 +44,7 @@ class SoundEvent {
   final double threshold;
   final bool urgent; // аюултай чимээ: илүү хүчтэй анхааруулна
   final bool defaultOn;
+  final String? mark; // мэдэгдлийн гарчгийн өнгөт тэмдэг
 }
 
 const List<SoundEvent> soundEvents = [
@@ -54,6 +56,7 @@ const List<SoundEvent> soundEvents = [
     ['Fire alarm', 'Smoke detector, smoke alarm'],
     0.30,
     urgent: true,
+    mark: '🔴',
   ),
   SoundEvent(
     'siren',
@@ -99,9 +102,15 @@ const List<SoundEvent> soundEvents = [
     ['Doorbell', 'Ding-dong'],
     0.30,
   ),
-  SoundEvent('knock', SoundCategory.home, Icons.back_hand, 'Хаалга тогших', [
-    'Knock',
-  ], 0.30),
+  SoundEvent(
+    'knock',
+    SoundCategory.home,
+    Icons.back_hand,
+    'Хаалга тогших',
+    ['Knock'],
+    0.30,
+    mark: '🟤',
+  ),
   SoundEvent(
     'glass',
     SoundCategory.home,
@@ -118,6 +127,7 @@ const List<SoundEvent> soundEvents = [
     'Хаалга хаагдах, онгойх',
     ['Door', 'Slam', 'Sliding door'],
     0.35,
+    mark: '🟤',
   ),
   SoundEvent(
     'phone',
@@ -152,6 +162,7 @@ const List<SoundEvent> soundEvents = [
     ['Water tap, faucet', 'Sink (filling or washing)'],
     0.40,
     defaultOn: false,
+    mark: '🔵',
   ),
   SoundEvent('baby', SoundCategory.people, Icons.child_care, 'Хүүхэд уйлах', [
     'Baby cry, infant cry',
@@ -268,7 +279,11 @@ class Detection {
     this.isName = false,
     this.urgent = false,
     this.guess = false,
+    this.mark,
   }) : time = DateTime.now();
+
+  /// Мэдэгдлийн гарчигт тавих өнгөт тэмдэг (нэр ⚪, гал 🔴, ус 🔵, тогших 🟤).
+  final String? mark;
 
   /// Тайлбар төдий тэмдэглэл ("... шиг чимээ"): чичиргээ, мэдэгдэлгүй, зөвхөн түүхэнд орно.
   final bool guess;

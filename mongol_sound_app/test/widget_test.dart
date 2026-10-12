@@ -57,6 +57,31 @@ void main() {
     expect(strength(0.1), greaterThan(strength(0.05)));
   });
 
+  test('Зайн таамаг: 6 дБ сулрахад хоёр дахина холдоно, нам гүмд хоосон', () {
+    final meters = FinderScreen.meters;
+    final near = meters(0.04)!; // ойролцоогоор -28 дБ = 1 м
+    expect(near, closeTo(1, 0.05));
+    expect(meters(0.02)!, closeTo(near * 2, 0.01));
+    expect(meters(0.04, loudSource: true)!, greaterThan(near));
+    expect(meters(0.001), isNull);
+    expect(FinderScreen.metersText(null), 'чимээгүй');
+    expect(FinderScreen.metersText(0.4), '1 м дотор');
+    expect(FinderScreen.metersText(2.0), '≈ 2 м');
+    expect(FinderScreen.metersText(2.6), '≈ 2.5 м');
+    expect(FinderScreen.metersText(8.2), '≈ 8 м');
+    expect(FinderScreen.metersText(40), '15 м-ээс хол');
+  });
+
+  test('Оноо: даалгавар бүрийн оноо нэг л удаа нэмэгдэнэ', () {
+    SharedPreferences.setMockInitialValues({});
+    final settings = AppSettings();
+    settings.earn('survey', 50);
+    settings.earn('survey', 50);
+    settings.earn('video', 20);
+    expect(settings.points, 70);
+    expect(settings.doneTasks, {'survey', 'video'});
+  });
+
   test('Ярианы ангиллууд YAMNet-д байгаа; мэдрэмж нэрийн босгыг өөрчилнө', () {
     for (final name in speechClasses) {
       expect(classNames, contains(name));

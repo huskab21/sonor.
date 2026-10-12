@@ -25,6 +25,9 @@ class AppSettings extends ChangeNotifier {
   bool describeOthers =
       true; // каталогт байхгүй чимээг "... шиг чимээ" гэж тэмдэглэх
 
+  int points = 0; // цуглуулсан оноо (демо, зөвхөн утсанд)
+  Set<String> doneTasks = {}; // оноо авсан даалгаврууд
+
   List<CustomSound> customSounds = [];
 
   /// Чимээний id -> заасан бичлэгүүд. Бичлэг бүр нь нэг буюу хэд хэдэн embedding
@@ -56,6 +59,8 @@ class AppSettings extends ChangeNotifier {
     sensitivity = prefs.getDouble('sensitivity') ?? sensitivity;
     describeOthers = prefs.getBool('describeOthers') ?? describeOthers;
     onboarded = prefs.getBool('onboarded') ?? onboarded;
+    points = prefs.getInt('points') ?? points;
+    doneTasks = prefs.getStringList('doneTasks')?.toSet() ?? doneTasks;
     themeMode =
         ThemeMode.values.asNameMap()[prefs.getString('themeMode')] ?? themeMode;
     final custom = prefs.getString('customSounds');
@@ -86,6 +91,8 @@ class AppSettings extends ChangeNotifier {
     await prefs.setDouble('sensitivity', sensitivity);
     await prefs.setBool('describeOthers', describeOthers);
     await prefs.setBool('onboarded', onboarded);
+    await prefs.setInt('points', points);
+    await prefs.setStringList('doneTasks', doneTasks.toList());
     await prefs.setString('themeMode', themeMode.name);
     await prefs.setString(
       'customSounds',
@@ -157,6 +164,13 @@ class AppSettings extends ChangeNotifier {
 
   void setDescribeOthers(bool value) {
     describeOthers = value;
+    _changed();
+  }
+
+  /// Даалгаврын оноог нэг удаа нэмнэ.
+  void earn(String task, int amount) {
+    if (!doneTasks.add(task)) return;
+    points += amount;
     _changed();
   }
 

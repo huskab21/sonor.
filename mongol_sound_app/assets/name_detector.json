@@ -1,14 +1,14 @@
 {
   "threshold": 0.9,
-  "recall": 0.7675,
-  "false_alarm": 0.04607142857142857,
+  "recall": 0.65125,
+  "false_alarm": 0.03642857142857143,
   "trained_with_real_voice": true,
-  "real_recall": 0.8583333333333333,
-  "tts_recall": 0.67578125,
-  "real_false_alarm": 0.025,
-  "similar_false_alarm": 0.02032520325203252,
-  "background_false_alarm": 0.056666666666666664,
+  "real_recall": 0.815625,
+  "tts_recall": 0.47265625,
+  "real_false_alarm": 0.012222222222222223,
+  "similar_false_alarm": 0.012195121951219513,
+  "background_false_alarm": 0.07666666666666666,
   "sample_rate": 16000,
   "window_samples": 24000,
-  "tflite_max_diff": 1.2516975402832031e-06
+  "tflite_max_diff": 4.6193599700927734e-07
 }

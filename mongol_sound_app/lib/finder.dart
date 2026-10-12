@@ -8,6 +8,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 
 import 'glass.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
+import 'sounds.dart';
 
 const Color _green = Color(0xFF34C759);
 const int _ticks = 60; // тойргийг 6 градус тутам хуваана
@@ -15,12 +16,20 @@ const Duration _memory = Duration(
   seconds: 40,
 ); // хэмжилт энэ хугацаанд бүдгэрнэ
 
+/// Нэг удаа гараад больсон чимээний тэмдэглэл: юу, хэзээ, хэр чанга сонсогдсон.
+class SoundFix {
+  SoundFix(this.detection, this.rms);
+  final Detection detection;
+  final double rms; // дохионы өмнөх 1.5 секундийн хамгийн чанга түвшин
+}
+
 /// Чимээний зүг хайх туршилтын хуудас. Утсаа аажуухан эргүүлэхэд луужингийн зүг бүрд
 /// сонсогдсон чимээний хүчийг тойрог дээр тэмдэглэж, хамгийн чанга зүгийг ногооноор
 /// харуулна. Чимээ рүү ойртох тусам цацраг уртасна.
 class FinderScreen extends StatefulWidget {
-  const FinderScreen({super.key, required this.engine});
+  const FinderScreen({super.key, required this.engine, this.fixes = const []});
   final SoundEngine engine;
+  final List<SoundFix> fixes; // шинэ нь эхэндээ
 
   /// RMS түвшнийг децибелээр 0-1 болгоно (-60 дБ = 0, -10 дБ = 1).
   static double strength(double rms) =>
@@ -28,6 +37,26 @@ class FinderScreen extends StatefulWidget {
         0.0,
         1.0,
       );
+
+  /// Чимээний хүчээр зайг метрээр таамаглана: 1 метрт -28 дБ (чанга дохиолол -16 дБ)
+  /// сонсогдоно гэж үзээд, 6 дБ сулрах бүрд зай хоёр дахина. Утасны микрофон
+  /// тохируулгагүй, чимээ бүр өөр чанга тул зөвхөн барагцаа. Нам гүм үед null.
+  static double? meters(double rms, {bool loudSource = false}) {
+    final db = 20 * math.log(math.max(rms, 1e-5)) / math.ln10;
+    if (db < -52) return null;
+    return math.pow(10, ((loudSource ? -16 : -28) - db) / 20).toDouble();
+  }
+
+  /// Зайг уншихад хялбар бичвэр болгоно.
+  static String metersText(double? m) => m == null
+      ? 'чимээгүй'
+      : m < 1
+      ? '1 м дотор'
+      : m > 15
+      ? '15 м-ээс хол'
+      : m < 5
+      ? '≈ ${(m * 2).round() / 2} м'.replaceAll('.0 ', ' ')
+      : '≈ ${m.round()} м';
 
   @override
   State<FinderScreen> createState() => _FinderScreenState();
@@ -42,6 +71,7 @@ class _FinderScreenState extends State<FinderScreen> {
   Timer? _demoSpin;
   double? _heading; // градус, 0 = хойд зүг
   double _now = 0; // одоогийн чимээний хүч, 0-1
+  double _rms = 0; // одоогийн түвшин (зай таамаглахад)
   bool _startedEngine = false;
   String? _error;
 
@@ -92,10 +122,16 @@ class _FinderScreenState extends State<FinderScreen> {
     super.dispose();
   }
 
+  String _clock(DateTime t) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
+  }
+
   void _onLevel() {
     final heading = _heading;
     if (heading == null || !mounted) return;
     var v = strength(widget.engine.level.value);
+    _rms = widget.engine.level.value;
     if (widget.engine.isDemo) {
       // Демо: 120 градусын зүгт чимээний эх үүсвэр байгаа мэт
       final off = (heading - 120) * math.pi / 180;
@@ -171,7 +207,7 @@ class _FinderScreenState extends State<FinderScreen> {
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Column(
               children: [
                 Expanded(
@@ -203,6 +239,20 @@ class _FinderScreenState extends State<FinderScreen> {
                                 'чимээний хүч',
                                 style: TextStyle(color: faint, fontSize: 13),
                               ),
+                              const SizedBox(height: 10),
+                              Text(
+                                FinderScreen.metersText(
+                                  FinderScreen.meters(_rms),
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                'барагцаа зай',
+                                style: TextStyle(color: faint, fontSize: 12),
+                              ),
                             ],
                           ),
                         ),
@@ -221,14 +271,55 @@ class _FinderScreenState extends State<FinderScreen> {
                         : (ready ? _green : null),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Text(
-                  'Туршилтын боломж. Ногоон цацраг хамгийн чанга сонсогдсон зүгийг заана, чимээ рүү '
-                  'ойртох тусам тоо өсөж, цацраг уртасна. Утасны микрофон зүгийг сул ялгадаг тул '
-                  'өрөөний цуурайнаас болж буруу заах боломжтой.',
+                  'Туршилтын боломж. Зай нь чимээний хүчээр гаргасан барагцаа таамаг: '
+                  'чимээ өөрөө чанга, сул байхаас хамаарч зөрнө.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: faint, fontSize: 13, height: 1.4),
+                  style: TextStyle(color: faint, fontSize: 12, height: 1.4),
                 ),
+                if (widget.fixes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 6, bottom: 6),
+                      child: Text(
+                        'Гараад больсон чимээ',
+                        style: TextStyle(color: faint, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  Glass(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 168),
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          for (final f in widget.fixes)
+                            ListTile(
+                              dense: true,
+                              leading: Icon(
+                                f.detection.icon,
+                                color: f.detection.urgent ? urgentAmber : null,
+                              ),
+                              title: Text(f.detection.label),
+                              subtitle: Text(
+                                '${FinderScreen.metersText(FinderScreen.meters(f.rms, loudSource: f.detection.urgent))}'
+                                ' · хүч ${(FinderScreen.strength(f.rms) * 100).round()}',
+                                style: TextStyle(color: faint),
+                              ),
+                              trailing: Text(
+                                _clock(f.detection.time),
+                                style: TextStyle(color: faint),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

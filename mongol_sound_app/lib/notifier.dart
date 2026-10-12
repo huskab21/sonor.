@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'sounds.dart';
@@ -8,6 +9,7 @@ import 'sounds.dart';
 class Notifier {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+  static const MethodChannel _torch = MethodChannel('sonor/device');
   bool _ready = false;
   int _nextId = 0;
 
@@ -29,10 +31,11 @@ class Notifier {
 
   Future<void> show(Detection d) async {
     if (!_ready) return;
+    final mark = d.mark ?? (d.urgent ? '⚠️' : null);
     try {
       await _plugin.show(
         id: _nextId++ % 1000,
-        title: d.urgent ? '⚠️ ${d.label}' : d.label,
+        title: mark == null ? d.label : '$mark ${d.label}',
         body: d.isName ? 'Хэн нэгэн таныг дуудаж байна' : 'Sonor чимээ таньлаа',
         notificationDetails: const NotificationDetails(
           iOS: DarwinNotificationDetails(presentSound: true),
@@ -46,6 +49,21 @@ class Notifier {
       );
     } catch (_) {
       // Дээрхтэй адил: мэдэгдлийн алдаа сонсох ажиллагааг зогсоохгүй
+    }
+  }
+
+  /// Арын гар чийдэнг анивчуулна (зөвхөн iPhone). Чичиргээтэй ижил хэмнэл:
+  /// нэр = хурдан гурав, аюултай чимээ = тав, бусад = хоёр.
+  Future<void> flash(Detection d) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      await _torch.invokeMethod<bool>('flash', {
+        'times': d.isName ? 3 : (d.urgent ? 5 : 2),
+        'onMs': d.isName ? 150 : 300,
+        'offMs': d.isName ? 150 : 300,
+      });
+    } catch (_) {
+      // Гар чийдэнгүй төхөөрөмж: дохионы бусад хэсэг хэвээр ажиллана
     }
   }
 }

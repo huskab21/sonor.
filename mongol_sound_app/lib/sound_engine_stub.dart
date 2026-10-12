@@ -52,11 +52,14 @@ class SoundEngine {
             'Таны нэрийг дуудлаа',
             0.93,
             isName: true,
+            mark: '⚪',
           ),
         );
       } else {
         final e = sounds[_next % sounds.length];
-        onDetection(Detection(e.icon, e.label, 0.5, urgent: e.urgent));
+        onDetection(
+          Detection(e.icon, e.label, 0.5, urgent: e.urgent, mark: e.mark),
+        );
       }
       _next++;
     });

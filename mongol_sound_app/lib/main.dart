@@ -13,6 +13,7 @@ import 'screens.dart';
 import 'settings.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
 import 'sounds.dart';
+import 'standby.dart';
 import 'welcome.dart';
 import 'workspace.dart';
 
@@ -39,20 +40,22 @@ class _MongolSoundAppState extends State<MongolSoundApp> {
     _settings.load();
   }
 
-  /// Хар, цагаан хоёр өнгөтэй загвар.
+  /// Гүн бараан дэвсгэр, нил ягаан өргөлттэй загвар (цайвар горимд цагаан дэвсгэр).
   static ThemeData _theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final ink = dark ? Colors.white : Colors.black;
-    final paper = dark ? Colors.black : Colors.white;
+    final ink = dark ? Colors.white : const Color(0xFF14101F);
+    final paper = dark ? const Color(0xFF0D0A16) : Colors.white;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    );
     return ThemeData(
       colorScheme:
           ColorScheme.fromSeed(
-            seedColor: Colors.grey,
+            seedColor: accentPurple,
             brightness: brightness,
-            dynamicSchemeVariant: DynamicSchemeVariant.monochrome,
           ).copyWith(
-            primary: ink,
-            onPrimary: paper,
+            primary: dark ? const Color(0xFFA06BFF) : const Color(0xFF7A2BE8),
+            onPrimary: Colors.white,
             surface: paper,
             onSurface: ink,
           ),
@@ -62,6 +65,39 @@ class _MongolSoundAppState extends State<MongolSoundApp> {
         foregroundColor: ink,
         elevation: 0,
         scrolledUnderElevation: 0,
+      ),
+      // Гол товчнууд нил ягаан шилжилттэй; идэвхгүй үед энгийн бүдэг дэвсгэр
+      filledButtonTheme: FilledButtonThemeData(
+        style: ButtonStyle(
+          shape: WidgetStatePropertyAll(shape),
+          // Дэвсгэрийг доорх backgroundBuilder зурна; энд өнгө өгвөл шилжилтийг дарна
+          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? ink.withValues(alpha: 0.4)
+                : Colors.white,
+          ),
+          backgroundBuilder: (context, states, child) => DecoratedBox(
+            // Өнгө, шилжилт хоёрыг зэрэг өгвөл шилжилт өнгөний тунгалагаар бүдгэрдэг
+            decoration: states.contains(WidgetState.disabled)
+                ? BoxDecoration(
+                    color: ink.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18),
+                  )
+                : BoxDecoration(
+                    gradient: accentGradient,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+            child: child,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: shape,
+          foregroundColor: ink,
+          side: BorderSide(color: accentPurple.withValues(alpha: 0.55)),
+        ),
       ),
     );
   }
@@ -104,6 +140,8 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
   late final AppSettings _settings = widget.settings;
   final Notifier _notifier = Notifier();
   bool _inForeground = true;
+  bool _standby =
+      false; // хүлээх горим: харанхуй дэлгэц, дохиогоор өнгөөр анивчина
   int _tab = 0; // доод цэсний сонгосон хуудас
   final List<WorkspaceMessage> _workspace = []; // Workspace хуудасны яриа
   late final SoundEngine _engine = SoundEngine(
@@ -112,6 +150,8 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
     onLevel: _onLevel,
   );
   final List<Detection> _history = [];
+  final List<SoundFix> _fixes = []; // «Чимээний зүг» хуудасны түүх: чимээ + хүч
+  final List<double> _recentLevels = []; // сүүлийн 1.5 секундийн түвшин
   String? _error;
   bool _ready = false;
   bool _listening = false;
@@ -137,6 +177,8 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _inForeground = state == AppLifecycleState.resumed;
+    // Аппаас гарвал хүлээх горим дуусна (дэлгэцийн гэрэлтүүлэг буцаж сэргэнэ)
+    if (!_inForeground && _standby) setState(() => _standby = false);
   }
 
   Future<void> _loadModel() async {
@@ -154,6 +196,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
       await _engine.stop();
       setState(() {
         _listening = false;
+        _standby = false;
         _level = 0;
       });
       return;
@@ -173,6 +216,8 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
   }
 
   void _onLevel(double level) {
+    _recentLevels.add(level);
+    if (_recentLevels.length > 6) _recentLevels.removeAt(0);
     if (mounted) setState(() => _level = level);
   }
 
@@ -187,10 +232,14 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
       return;
     }
     if (!_inForeground) _notifier.show(d);
+    if (!_inForeground || _standby) _notifier.flash(d);
+    final peak = _recentLevels.fold(0.0, (a, b) => a > b ? a : b);
     setState(() {
       _flash = d;
       _history.insert(0, d);
       if (_history.length > 50) _history.removeLast();
+      _fixes.insert(0, SoundFix(d, peak));
+      if (_fixes.length > 50) _fixes.removeLast();
     });
     _flashTimer?.cancel();
     _flashTimer = Timer(const Duration(seconds: 4), () {
@@ -227,13 +276,26 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_standby) {
+      return StandbyScreen(
+        flash: _flash,
+        onExit: () => setState(() => _standby = false),
+      );
+    }
+    // Дохио ирэхэд дэлгэц бүтнээрээ чимээний өнгөөр гурван удаа анивчина
+    return Stack(
+      children: [
+        _app(context),
+        Positioned.fill(child: ColorFlash(flash: _flash)),
+      ],
+    );
+  }
+
+  Widget _app(BuildContext context) {
     final flash = _flash;
     final faint = faintOf(context);
-    final ink = inkOf(context);
-    // Том карт: яаралтай бол шар, бусад үед урвуу өнгө (бараанд цагаан, цайварт хар)
-    final flashInk = flash != null && flash.urgent
-        ? Colors.black
-        : Theme.of(context).colorScheme.surface;
+    // Том карт чимээний өнгөөр (дэлгэцийн анивчилттай ижил), бичвэр нь хар
+    const flashInk = Colors.black;
     return Backdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -256,7 +318,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
             hasNameModel: _engine.hasNameModel,
           ),
           3 => WorkspaceScreen(engine: _engine, messages: _workspace),
-          4 => FinderScreen(engine: _engine),
+          4 => FinderScreen(engine: _engine, fixes: _fixes),
           5 => ProfileScreen(settings: _settings, auth: widget.auth),
           // Нүүр: жижиг дэлгэцэд багтахгүй бол гүйлгэж болно
           _ => SafeArea(
@@ -307,8 +369,25 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                   ),
                                 ),
                               ],
+                              const Spacer(),
+                              if (_listening)
+                                IconButton(
+                                  tooltip: 'Хүлээх горим',
+                                  icon: const Icon(Icons.bedtime_outlined),
+                                  onPressed: () =>
+                                      setState(() => _standby = true),
+                                ),
                             ],
                           ),
+                          if (_engine.isDemo)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+                              child: Text(
+                                'Вэб демо: дохио, яриа таних нь жишээ. '
+                                'Жинхэнээсээ сонсдог апп iPhone дээр ажиллана.',
+                                style: TextStyle(fontSize: 12, color: faint),
+                              ),
+                            ),
                           const SizedBox(height: 12),
                           // Сонсох товч нь дээд мөр ба мэдрэмжийн картын яг голд байрлана. Сүүлийн дохионы
                           // том карт товчны дээр, энэ хэсгийн дээд талд гарна.
@@ -364,9 +443,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                             key: ValueKey(flash.time),
                                             child: Glass(
                                               radius: 28,
-                                              tint: flash.urgent
-                                                  ? urgentAmber
-                                                  : ink,
+                                              tint: flashColorOf(flash),
                                               padding:
                                                   const EdgeInsets.symmetric(
                                                     horizontal: 22,

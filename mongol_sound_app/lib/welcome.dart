@@ -172,7 +172,12 @@ class _HeadphoneHeroState extends State<HeadphoneHero>
             children: [
               Positioned.fill(
                 child: CustomPaint(
-                  painter: _HeadphonePainter(_pulse, inkOf(context)),
+                  painter: _HeadphonePainter(
+                    _pulse,
+                    isDark(context)
+                        ? const Color(0xFFD9C2FF)
+                        : accentOf(context),
+                  ),
                 ),
               ),
               Positioned(
@@ -272,8 +277,6 @@ class _SwipeToStartState extends State<SwipeToStart> {
 
   @override
   Widget build(BuildContext context) {
-    final ink = inkOf(context);
-    final paper = Theme.of(context).colorScheme.surface;
     return Semantics(
       button: true,
       label: widget.label,
@@ -322,13 +325,13 @@ class _SwipeToStartState extends State<SwipeToStart> {
                       child: Container(
                         width: _knob,
                         height: _knob,
-                        decoration: BoxDecoration(
-                          color: ink,
+                        decoration: const BoxDecoration(
+                          gradient: accentGradient,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.keyboard_double_arrow_right,
-                          color: paper,
+                          color: Colors.white,
                           size: 30,
                         ),
                       ),

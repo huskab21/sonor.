@@ -375,6 +375,7 @@ class SoundEngine {
             'Таны нэрийг дуудлаа',
             smoothed,
             isName: true,
+            mark: '⚪',
           ),
         );
       }
@@ -393,7 +394,13 @@ class SoundEngine {
         if (best >= event.threshold * settings.thresholdScale) {
           fired = true;
           _alert(
-            Detection(event.icon, event.label, best, urgent: event.urgent),
+            Detection(
+              event.icon,
+              event.label,
+              best,
+              urgent: event.urgent,
+              mark: event.mark,
+            ),
           );
         }
       }
@@ -415,7 +422,15 @@ class SoundEngine {
       if (score < threshold || prev < threshold) continue;
       final event = soundEvents.where((e) => e.id == id).firstOrNull;
       if (event != null) {
-        _alert(Detection(event.icon, event.label, score, urgent: event.urgent));
+        _alert(
+          Detection(
+            event.icon,
+            event.label,
+            score,
+            urgent: event.urgent,
+            mark: event.mark,
+          ),
+        );
         continue;
       }
       final custom = settings.customSounds.where((c) => c.id == id).firstOrNull;

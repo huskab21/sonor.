@@ -3,8 +3,18 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// Аппын өнгө хар, цагаан хоёр. Зөвхөн яаралтай дохиог шараар ялгана.
+/// Аппын өнгө: гүн хар хөх дэвсгэр дээр нил ягаан өргөлт. Яаралтай дохиог шараар ялгана.
 const Color urgentAmber = Color(0xFFFF9F0A);
+const Color accentPurple = Color(0xFF8B3DFF);
+const Color accentMagenta = Color(0xFFC13DFF);
+
+/// Гол товч, сонгосон цэсний нил ягаан шилжилт.
+const LinearGradient accentGradient = LinearGradient(
+  colors: [accentMagenta, accentPurple, Color(0xFF6A2BE0)],
+);
+
+/// Өргөлтийн өнгө: бараан горимд тод, цайвар горимд гүн нил ягаан.
+Color accentOf(BuildContext context) => Theme.of(context).colorScheme.primary;
 
 bool isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
@@ -15,7 +25,7 @@ Color inkOf(BuildContext context) => Theme.of(context).colorScheme.onSurface;
 /// Туслах бичвэрийн бүдэг өнгө.
 Color faintOf(BuildContext context) => inkOf(context).withValues(alpha: 0.55);
 
-/// Аппын бүх дэлгэцийн ард байх дэвсгэр: бараан горимд хар, цайвар горимд цагаан.
+/// Аппын бүх дэлгэцийн ард байх дэвсгэр: дээд талдаа нил ягаан туяатай.
 class Backdrop extends StatelessWidget {
   const Backdrop({super.key, required this.child});
   final Widget child;
@@ -25,11 +35,11 @@ class Backdrop extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: const Alignment(-0.3, -0.5),
-          radius: 1.3,
+          center: const Alignment(-0.2, -0.85),
+          radius: 1.25,
           colors: isDark(context)
-              ? const [Color(0xFF1E1E20), Color(0xFF0A0A0B), Color(0xFF000000)]
-              : const [Color(0xFFFFFFFF), Color(0xFFF6F6F7), Color(0xFFECECEE)],
+              ? const [Color(0xFF3B1C74), Color(0xFF150F26), Color(0xFF0B0813)]
+              : const [Color(0xFFFFFFFF), Color(0xFFF5F0FF), Color(0xFFE9E0FB)],
           stops: const [0, 0.55, 1],
         ),
       ),
@@ -56,7 +66,6 @@ class Glass extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = BorderRadius.circular(radius);
     final dark = isDark(context);
-    final ink = inkOf(context);
     return ClipRRect(
       borderRadius: r,
       child: BackdropFilter(
@@ -66,15 +75,21 @@ class Glass extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: r,
             border: Border.all(
-              color: ink.withValues(alpha: dark ? 0.16 : 0.10),
+              color: dark
+                  ? const Color(0xFFB79CFF).withValues(alpha: 0.18)
+                  : accentPurple.withValues(alpha: 0.14),
             ),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: tint == null
                   ? [
-                      ink.withValues(alpha: dark ? 0.12 : 0.05),
-                      ink.withValues(alpha: dark ? 0.03 : 0.02),
+                      dark
+                          ? const Color(0xFFB79CFF).withValues(alpha: 0.13)
+                          : Colors.white.withValues(alpha: 0.75),
+                      dark
+                          ? const Color(0xFFB79CFF).withValues(alpha: 0.04)
+                          : Colors.white.withValues(alpha: 0.5),
                     ]
                   : [tint!, tint!.withValues(alpha: 0.82)],
             ),
@@ -86,7 +101,7 @@ class Glass extends StatelessWidget {
   }
 }
 
-/// Дэлгэцийн доор хөвөх дүрсэн цэс. Сонгосон нь дүүргэсэн дугуйгаар тодорно.
+/// Дэлгэцийн доор хөвөх дүрсэн цэс. Сонгосон нь нил ягаан дугуйгаар тодорно.
 class NavBar extends StatelessWidget {
   const NavBar({
     super.key,
@@ -101,7 +116,6 @@ class NavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = inkOf(context);
-    final paper = Theme.of(context).colorScheme.surface;
     return SafeArea(
       top: false,
       child: Padding(
@@ -132,16 +146,21 @@ class NavBar extends StatelessWidget {
                             height: 48,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: i == index
-                                  ? ink
-                                  : ink.withValues(alpha: 0),
+                              gradient: i == index ? accentGradient : null,
+                              boxShadow: [
+                                if (i == index)
+                                  BoxShadow(
+                                    color: accentPurple.withValues(alpha: 0.55),
+                                    blurRadius: 16,
+                                  ),
+                              ],
                             ),
                             child: Icon(
                               icon,
                               size: 24,
                               color: i == index
-                                  ? paper
-                                  : ink.withValues(alpha: 0.8),
+                                  ? Colors.white
+                                  : ink.withValues(alpha: 0.7),
                             ),
                           ),
                         ),
@@ -157,8 +176,8 @@ class NavBar extends StatelessWidget {
   }
 }
 
-/// Гол товч: шилэн капсул. Идэвхтэй үед өнгө нь урвуулагдаж (бараан горимд цагаан,
-/// цайвар горимд хар), дууны түвшнээр лугшина. Сонсож байгааг харуулахын тулд товчноос
+/// Гол товч: шилэн капсул. Идэвхтэй үед нил ягаан шилжилтээр дүүрч, дууны түвшнээр
+/// лугшина. Сонсож байгааг харуулахын тулд товчноос
 /// долгион тархаж, дүрсний оронд микрофоны бодит түвшнийг дагасан баганууд хөдөлнө.
 class LiquidButton extends StatefulWidget {
   const LiquidButton({
@@ -215,7 +234,7 @@ class _LiquidButtonState extends State<LiquidButton>
         : 0.0;
     final dark = isDark(context);
     final ink = inkOf(context);
-    final content = widget.active ? Theme.of(context).colorScheme.surface : ink;
+    final content = widget.active ? Colors.white : ink;
 
     return Semantics(
       button: true,
@@ -230,7 +249,11 @@ class _LiquidButtonState extends State<LiquidButton>
           duration: const Duration(milliseconds: 120),
           child: CustomPaint(
             painter: widget.active
-                ? _RipplePainter(_wave, ink, widget.level.clamp(0.0, 1.0))
+                ? _RipplePainter(
+                    _wave,
+                    accentOf(context),
+                    widget.level.clamp(0.0, 1.0),
+                  )
                 : null,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
@@ -245,7 +268,9 @@ class _LiquidButtonState extends State<LiquidButton>
                     offset: const Offset(0, 18),
                   ),
                   BoxShadow(
-                    color: ink.withValues(alpha: (dark ? 0.45 : 0.30) * glow),
+                    color: accentPurple.withValues(
+                      alpha: (dark ? 0.75 : 0.5) * glow,
+                    ),
                     blurRadius: 30 + 50 * glow,
                     spreadRadius: 2 * glow,
                   ),
@@ -266,17 +291,11 @@ class _LiquidButtonState extends State<LiquidButton>
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: widget.active
-                                ? (dark
-                                      ? const [
-                                          Color(0xFFFFFFFF),
-                                          Color(0xFFECECEF),
-                                          Color(0xFFCDCDD2),
-                                        ]
-                                      : const [
-                                          Color(0xFF48484A),
-                                          Color(0xFF161617),
-                                          Color(0xFF000000),
-                                        ])
+                                ? const [
+                                    accentMagenta,
+                                    accentPurple,
+                                    Color(0xFF5B21D6),
+                                  ]
                                 : [
                                     ink.withValues(alpha: dark ? 0.16 : 0.07),
                                     ink.withValues(alpha: dark ? 0.04 : 0.02),
@@ -298,7 +317,7 @@ class _LiquidButtonState extends State<LiquidButton>
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.white.withValues(
-                                  alpha: dark || !widget.active ? 0.34 : 0.16,
+                                  alpha: widget.active ? 0.28 : 0.34,
                                 ),
                                 Colors.white.withValues(alpha: 0),
                               ],
@@ -311,7 +330,10 @@ class _LiquidButtonState extends State<LiquidButton>
                         decoration: BoxDecoration(
                           borderRadius: radius,
                           border: Border.all(
-                            color: ink.withValues(alpha: dark ? 0.55 : 0.22),
+                            color: widget.active
+                                ? Colors.white.withValues(alpha: 0.45)
+                                : accentOf(context)
+                                      .withValues(alpha: dark ? 0.7 : 0.45),
                             width: 1.4,
                           ),
                         ),
