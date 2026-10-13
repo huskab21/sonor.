@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
@@ -74,6 +75,9 @@ class _FinderScreenState extends State<FinderScreen> {
   double _rms = 0; // одоогийн түвшин (зай таамаглахад)
   bool _startedEngine = false;
   String? _error;
+  bool _cameraMode = false; // камерын дүрс дээр сумаар зүг заах горим
+  CameraController? _camera;
+  String? _cameraError;
 
   @override
   void initState() {
@@ -113,8 +117,51 @@ class _FinderScreenState extends State<FinderScreen> {
     });
   }
 
+  /// Камерын горимыг асааж, унтраана. Арын камерыг дуугүйгээр нээнэ (микрофоныг
+  /// сонсох хөдөлгүүр ашиглаж байгаа), юу ч хадгалахгүй.
+  Future<void> _toggleCamera() async {
+    if (_cameraMode) {
+      final old = _camera;
+      setState(() {
+        _cameraMode = false;
+        _camera = null;
+      });
+      await old?.dispose();
+      return;
+    }
+    setState(() {
+      _cameraMode = true;
+      _cameraError = null;
+    });
+    try {
+      final cameras = await availableCameras();
+      final back = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+      final controller = CameraController(
+        back,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await controller.initialize();
+      if (!mounted || !_cameraMode) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _camera = controller);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _cameraError = 'Камер нээгдсэнгүй. Утасны тохиргооноос камерын зөвшөөрөл өгнө үү.',
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _camera?.dispose();
     widget.engine.level.removeListener(_onLevel);
     _compass?.cancel();
     _demoSpin?.cancel();
@@ -153,6 +200,132 @@ class _FinderScreenState extends State<FinderScreen> {
         }
       }
     });
+  }
+
+  /// Камерын дүрс дээр зүгийн сум, барагцаа зай, сүүлд таньсан чимээг давхарлана.
+  /// [turn]: чимээний зүг утасны чиглэлээс хэдэн градус зөрж байгаа; null бол
+  /// луужингаар хараахан хайгаагүй.
+  Widget _cameraView(BuildContext context, String guide, double? turn) {
+    final camera = _camera;
+    final onTarget = turn != null && turn.abs() < 15;
+    final behind = turn != null && turn.abs() > 120;
+    final hint = _cameraError != null
+        ? _cameraError!
+        : turn == null
+        ? 'Эхлээд луужингаар байрандаа бүтэн эргэж зүгээ олно уу'
+        : onTarget
+        ? 'Яг энэ зүгт байна. Урагш алхаарай'
+        : behind
+        ? 'Ард талд байна. Эргэж хараарай'
+        : guide;
+    // Сүүлийн 30 секундэд таньсан чимээ байвал нэрийг нь харуулна
+    final recent =
+        widget.fixes.isNotEmpty &&
+            DateTime.now().difference(widget.fixes.first.detection.time) <
+                const Duration(seconds: 30)
+        ? widget.fixes.first
+        : null;
+    final distance = FinderScreen.metersText(
+      recent != null
+          ? FinderScreen.meters(recent.rms, loudSource: recent.detection.urgent)
+          : FinderScreen.meters(_rms),
+    );
+    Widget chip(Widget child) => DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: child,
+      ),
+    );
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const ColoredBox(color: Colors.black),
+              if (camera != null)
+                FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: camera.value.previewSize?.height ?? 1,
+                    height: camera.value.previewSize?.width ?? 1,
+                    child: CameraPreview(camera),
+                  ),
+                ),
+              if (turn != null)
+                Center(
+                  child: Transform.rotate(
+                    angle: turn * math.pi / 180,
+                    child: Icon(
+                      Icons.navigation,
+                      size: 150,
+                      color: onTarget ? _green : Colors.white,
+                      shadows: const [
+                        Shadow(color: Colors.black87, blurRadius: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 14,
+                left: 14,
+                right: 14,
+                child: Center(
+                  child: chip(
+                    Text(
+                      hint,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _cameraError != null
+                            ? urgentAmber
+                            : (onTarget ? _green : Colors.white),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 14,
+                left: 14,
+                right: 14,
+                child: Center(
+                  child: chip(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          recent?.detection.icon ?? Icons.graphic_eq,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            '${recent?.detection.label ?? 'Чимээ'} · $distance',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -198,132 +371,159 @@ class _FinderScreenState extends State<FinderScreen> {
           : 'Зүүн тийш эргэнэ үү';
     }
 
+    // Хамгийн чанга зүг утасны чиглэлээс хэдэн градус зөрж байгаа (-180..180)
+    final double? turn = ready
+        ? ((best * 360 / _ticks - heading + 540) % 360) - 180
+        : null;
     return Backdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           title: const Text('Чимээний зүг'),
           backgroundColor: Colors.transparent,
+          actions: [
+            IconButton(
+              tooltip: _cameraMode ? 'Луужин' : 'Камераар харах',
+              icon: Icon(
+                _cameraMode ? Icons.explore_outlined : Icons.videocam_outlined,
+              ),
+              onPressed: _toggleCamera,
+            ),
+          ],
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: CustomPaint(
-                        painter: _RingPainter(
-                          loudness: _loudness,
-                          freshness: freshness,
-                          heading: heading ?? 0,
-                          best: ready ? best : null,
-                          ink: ink,
-                        ),
+        body: _cameraMode
+            ? _cameraView(context, guide, turn)
+            : SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: Column(
+                    children: [
+                      Expanded(
                         child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${(_now * 100).round()}',
-                                style: const TextStyle(
-                                  fontSize: 54,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1,
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: CustomPaint(
+                              painter: _RingPainter(
+                                loudness: _loudness,
+                                freshness: freshness,
+                                heading: heading ?? 0,
+                                best: ready ? best : null,
+                                ink: ink,
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${(_now * 100).round()}',
+                                      style: const TextStyle(
+                                        fontSize: 54,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'чимээний хүч',
+                                      style: TextStyle(
+                                        color: faint,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      FinderScreen.metersText(
+                                        FinderScreen.meters(_rms),
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      'барагцаа зай',
+                                      style: TextStyle(
+                                        color: faint,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'чимээний хүч',
-                                style: TextStyle(color: faint, fontSize: 13),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                FinderScreen.metersText(
-                                  FinderScreen.meters(_rms),
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'барагцаа зай',
-                                style: TextStyle(color: faint, fontSize: 12),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                Text(
-                  guide,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w600,
-                    color: _error != null
-                        ? urgentAmber
-                        : (ready ? _green : null),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Туршилтын боломж. Зай нь чимээний хүчээр гаргасан барагцаа таамаг: '
-                  'чимээ өөрөө чанга, сул байхаас хамаарч зөрнө.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: faint, fontSize: 12, height: 1.4),
-                ),
-                if (widget.fixes.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 6, bottom: 6),
-                      child: Text(
-                        'Гараад больсон чимээ',
-                        style: TextStyle(color: faint, fontSize: 13),
+                      Text(
+                        guide,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                          color: _error != null
+                              ? urgentAmber
+                              : (ready ? _green : null),
+                        ),
                       ),
-                    ),
-                  ),
-                  Glass(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 168),
-                      child: ListView(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        children: [
-                          for (final f in widget.fixes)
-                            ListTile(
-                              dense: true,
-                              leading: Icon(
-                                f.detection.icon,
-                                color: f.detection.urgent ? urgentAmber : null,
-                              ),
-                              title: Text(f.detection.label),
-                              subtitle: Text(
-                                '${FinderScreen.metersText(FinderScreen.meters(f.rms, loudSource: f.detection.urgent))}'
-                                ' · хүч ${(FinderScreen.strength(f.rms) * 100).round()}',
-                                style: TextStyle(color: faint),
-                              ),
-                              trailing: Text(
-                                _clock(f.detection.time),
-                                style: TextStyle(color: faint),
-                              ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Туршилтын боломж. Зай нь чимээний хүчээр гаргасан барагцаа таамаг: '
+                        'чимээ өөрөө чанга, сул байхаас хамаарч зөрнө.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: faint,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (widget.fixes.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 6, bottom: 6),
+                            child: Text(
+                              'Гараад больсон чимээ',
+                              style: TextStyle(color: faint, fontSize: 13),
                             ),
-                        ],
-                      ),
-                    ),
+                          ),
+                        ),
+                        Glass(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 168),
+                            child: ListView(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              children: [
+                                for (final f in widget.fixes)
+                                  ListTile(
+                                    dense: true,
+                                    leading: Icon(
+                                      f.detection.icon,
+                                      color: f.detection.urgent
+                                          ? urgentAmber
+                                          : null,
+                                    ),
+                                    title: Text(f.detection.label),
+                                    subtitle: Text(
+                                      '${FinderScreen.metersText(FinderScreen.meters(f.rms, loudSource: f.detection.urgent))}'
+                                      ' · хүч ${(FinderScreen.strength(f.rms) * 100).round()}',
+                                      style: TextStyle(color: faint),
+                                    ),
+                                    trailing: Text(
+                                      _clock(f.detection.time),
+                                      style: TextStyle(color: faint),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
-          ),
-        ),
+                ),
+              ),
       ),
     );
   }

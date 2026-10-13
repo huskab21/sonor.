@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Чимээний зүгийг камерын дүрс дээр сумаар харуулахын тулд камер ашиглана. Зураг, бичлэг хадгалахгүй.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Энэхүү апп нь орчны чимээг танихын тулд микрофон ашиглана.</string>
 	<key>UIApplicationSceneManifest</key>

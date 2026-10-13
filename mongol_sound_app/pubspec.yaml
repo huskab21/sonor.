@@ -43,6 +43,7 @@ dependencies:
   supabase_flutter: ^2.18.0
   flutter_compass: ^0.8.1
   http: ^1.6.0
+  camera: ^0.12.1
 
 dev_dependencies:
   flutter_test:
