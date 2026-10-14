@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'glass.dart';
 import 'settings.dart';
+import 'sign.dart';
 
 const String proName = 'Sonor Pro';
 const String proPrice = '9,900₮';
@@ -45,7 +46,7 @@ rewardTasks = [
 Widget _page(String title, List<Widget> children) => Backdrop(
   child: Scaffold(
     backgroundColor: Colors.transparent,
-    appBar: AppBar(title: Text(title), backgroundColor: Colors.transparent),
+    appBar: AppBar(title: SText(title), backgroundColor: Colors.transparent),
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -73,8 +74,8 @@ class RewardsCard extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.stars_outlined),
-              title: const Text('Оноо цуглуулах, мөнгө олох'),
-              subtitle: Text(
+              title: const SText('Оноо цуглуулах, мөнгө олох'),
+              subtitle: SText(
                 '${settings.points} оноо',
                 style: TextStyle(color: faint),
               ),
@@ -83,8 +84,11 @@ class RewardsCard extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.workspace_premium_outlined),
-              title: const Text(proName),
-              subtitle: Text('Сарын $proPrice', style: TextStyle(color: faint)),
+              title: const SText(proName),
+              subtitle: SText(
+                'Сарын $proPrice',
+                style: TextStyle(color: faint),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(context, const ProScreen()),
             ),
@@ -113,19 +117,19 @@ class RewardsScreen extends StatelessWidget {
       'share' => showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Лайк, шэйр'),
-          content: const Text(
+          title: const SText('Лайк, шэйр'),
+          content: const SText(
             'Демо: жинхэнэ хувилбарт Sonor-ийн хуудас нээгдэж, лайк дарж, '
             'хуваалцсаны дараа оноо орно.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Болих'),
+              child: const SText('Болих'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Хийлээ'),
+              child: const SText('Хийлээ'),
             ),
           ],
         ),
@@ -133,22 +137,22 @@ class RewardsScreen extends StatelessWidget {
       _ => showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Найзаа урих'),
-          content: const Text(
+          title: const SText('Найзаа урих'),
+          content: const SText(
             'Таны урилгын код:\n\nSONOR-DEMO\n\n'
             'Демо: жинхэнэ хувилбарт найз тань энэ кодоор бүртгүүлэхэд оноо орно.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Болих'),
+              child: const SText('Болих'),
             ),
             FilledButton(
               onPressed: () {
                 Clipboard.setData(const ClipboardData(text: 'SONOR-DEMO'));
                 Navigator.pop(context, true);
               },
-              child: const Text('Код хуулах'),
+              child: const SText('Код хуулах'),
             ),
           ],
         ),
@@ -157,7 +161,7 @@ class RewardsScreen extends StatelessWidget {
     if (done != true || !context.mounted) return;
     settings.earn(id, points);
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('+$points оноо нэмэгдлээ')));
+        .showSnackBar(SnackBar(content: SText('+$points оноо нэмэгдлээ')));
   }
 
   @override
@@ -170,9 +174,9 @@ class RewardsScreen extends StatelessWidget {
           padding: const EdgeInsets.all(22),
           child: Column(
             children: [
-              Text('Таны оноо', style: TextStyle(color: faint)),
+              SText('Таны оноо', style: TextStyle(color: faint)),
               const SizedBox(height: 4),
-              Text(
+              SText(
                 '${settings.points}',
                 style: const TextStyle(
                   fontSize: 54,
@@ -181,7 +185,7 @@ class RewardsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
+              SText(
                 'Оноог мөнгө болгох боломж удахгүй нэмэгдэнэ',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: faint, fontSize: 13),
@@ -196,11 +200,11 @@ class RewardsScreen extends StatelessWidget {
               for (final t in rewardTasks)
                 ListTile(
                   leading: Icon(t.icon),
-                  title: Text(t.title),
-                  subtitle: Text(t.hint, style: TextStyle(color: faint)),
+                  title: SText(t.title),
+                  subtitle: SText(t.hint, style: TextStyle(color: faint)),
                   trailing: settings.doneTasks.contains(t.id)
                       ? const Icon(Icons.check_circle)
-                      : Text(
+                      : SText(
                           '+${t.points}',
                           style: const TextStyle(
                             fontSize: 16,
@@ -216,7 +220,7 @@ class RewardsScreen extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
-          child: Text(
+          child: SText(
             'Демо хувилбар: даалгаврууд жишээ бөгөөд оноо зөвхөн энэ утсанд тоологдоно. '
             'Жинхэнэ мөнгө хараахан олгохгүй.',
             style: TextStyle(color: faint, fontSize: 13, height: 1.4),
@@ -258,7 +262,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
       for (final (i, (question, options)) in questions.indexed) ...[
         Padding(
           padding: const EdgeInsets.fromLTRB(6, 14, 6, 8),
-          child: Text(
+          child: SText(
             '${i + 1}. $question',
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
@@ -268,7 +272,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
             children: [
               for (final (j, option) in options.indexed)
                 ListTile(
-                  title: Text(option),
+                  title: SText(option),
                   trailing: _answers[i] == j ? const Icon(Icons.check) : null,
                   onTap: () => setState(() => _answers[i] = j),
                 ),
@@ -283,12 +287,12 @@ class _SurveyScreenState extends State<SurveyScreen> {
             : null,
         child: const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
-          child: Text('Илгээх', style: TextStyle(fontSize: 17)),
+          child: SText('Илгээх', style: TextStyle(fontSize: 17)),
         ),
       ),
       Padding(
         padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
-        child: Text(
+        child: SText(
           'Жишээ судалгаа. Хариулт хаашаа ч илгээгдэхгүй.',
           style: TextStyle(color: faint, fontSize: 13),
         ),
@@ -327,13 +331,13 @@ class _VideoDialogState extends State<_VideoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Жишээ бичлэг'),
+      title: const SText('Жишээ бичлэг'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.smart_display_outlined, size: 72),
           const SizedBox(height: 12),
-          Text(
+          SText(
             _left > 0 ? 'Бичлэг дуусахад $_left секунд' : 'Бичлэг дууслаа',
             textAlign: TextAlign.center,
           ),
@@ -342,11 +346,11 @@ class _VideoDialogState extends State<_VideoDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Болих'),
+          child: const SText('Болих'),
         ),
         FilledButton(
           onPressed: _left > 0 ? null : () => Navigator.pop(context, true),
-          child: const Text('Оноо авах'),
+          child: const SText('Оноо авах'),
         ),
       ],
     );
@@ -374,7 +378,7 @@ class ProScreen extends StatelessWidget {
           children: [
             const Icon(Icons.workspace_premium_outlined, size: 48),
             const SizedBox(height: 10),
-            const Text(
+            const SText(
               proName,
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
             ),
@@ -384,11 +388,11 @@ class ProScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                const Text(
+                const SText(
                   proPrice,
                   style: TextStyle(fontSize: 40, fontWeight: FontWeight.w700),
                 ),
-                Text(' / сар', style: TextStyle(color: faint, fontSize: 17)),
+                SText(' / сар', style: TextStyle(color: faint, fontSize: 17)),
               ],
             ),
           ],
@@ -399,7 +403,7 @@ class ProScreen extends StatelessWidget {
         child: Column(
           children: [
             for (final (icon, label) in _perks)
-              ListTile(leading: Icon(icon), title: Text(label)),
+              ListTile(leading: Icon(icon), title: SText(label)),
           ],
         ),
       ),
@@ -408,12 +412,12 @@ class ProScreen extends StatelessWidget {
         onPressed: null,
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
-          child: Text('Удахгүй', style: TextStyle(fontSize: 17)),
+          child: SText('Удахгүй', style: TextStyle(fontSize: 17)),
         ),
       ),
       Padding(
         padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
-        child: Text(
+        child: SText(
           'Төлбөртэй горим хөгжүүлэлтийн шатанд байна. Дээрх боломжууд төлөвлөгөө бөгөөд '
           'өөрчлөгдөж болно. Одоогоор төлбөр авахгүй.',
           style: TextStyle(color: faint, fontSize: 13, height: 1.4),

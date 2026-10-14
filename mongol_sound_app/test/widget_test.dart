@@ -9,7 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mongol_sound_app/auth.dart';
 import 'package:mongol_sound_app/few_shot.dart';
 import 'package:mongol_sound_app/finder.dart';
+import 'package:mongol_sound_app/phrasebook.dart';
 import 'package:mongol_sound_app/settings.dart';
+import 'package:mongol_sound_app/sign.dart';
+import 'package:mongol_sound_app/speaker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mongol_sound_app/sounds.dart';
@@ -81,6 +84,190 @@ void main() {
     expect(settings.points, 70);
     expect(settings.doneTasks, {'survey', 'video'});
   });
+
+  test('Тасралтгүй чимээ: сүүлийн 6 шалгалтын 5-д сул босго давбал дохио', () {
+    final tracker = SustainTracker();
+    for (var i = 0; i < 4; i++) {
+      expect(tracker.add('water', true), isFalse);
+    }
+    expect(tracker.add('water', false), isFalse); // нэг удаа тасалдав
+    expect(tracker.add('water', true), isTrue); // 6-аас 5
+    tracker.reset('water');
+    expect(tracker.add('water', true), isFalse); // дахин 3 секунд хэрэгтэй
+    // Тасархай чимээ хэзээ ч хүрэхгүй
+    for (var i = 0; i < 20; i++) {
+      expect(tracker.add('knock', i.isEven), isFalse);
+    }
+    expect(
+      soundEvents.where((e) => e.sustained).map((e) => e.id),
+      containsAll(['water', 'fire', 'siren', 'baby']),
+    );
+  });
+
+  test(
+    'Түвшин тэгшитгэх: нам дууг өсгөнө, чимээгүй ба чанга дууг хөндөхгүй',
+    () {
+      Float32List tone(double amp) => Float32List.fromList([
+        for (var i = 0; i < 1600; i++) amp * math.sin(i * 0.3),
+      ]);
+      final quiet = tone(0.014); // rms ~0.01
+      final gain = normalizeLevel(quiet);
+      expect(gain, closeTo(5, 0.2));
+      expect(rms(quiet), closeTo(0.05, 0.002));
+      final faint = tone(0.007); // rms ~0.005: дээд тал нь 8 дахин
+      expect(normalizeLevel(faint), 8);
+      expect(normalizeLevel(tone(0.001)), 1); // шуугиан
+      expect(normalizeLevel(tone(0.3)), 1); // аль хэдийн чанга
+    },
+  );
+
+  test('Дохионы цагаан толгой: 35 үсэг бүр зурагтай', () {
+    expect(signAlphabet.runes.length, 35);
+    for (final rune in signAlphabet.runes) {
+      final asset = signAsset(String.fromCharCode(rune));
+      expect(asset, isNotNull);
+      expect(File(asset!).existsSync(), isTrue, reason: asset);
+    }
+    expect(signAsset('Ү'), signAsset('ү'));
+    expect(signAsset('5'), isNull);
+    expect(signAsset('a'), isNull); // латин үсэг
+  });
+
+  testWidgets('SText: энгийн үед бичвэр, дохионы горимд үсэг бүр зураг', (
+    tester,
+  ) async {
+    Widget app(bool sign) => MaterialApp(
+      home: SignScope(
+        enabled: sign,
+        child: const Scaffold(body: SText('Ус 5')),
+      ),
+    );
+    await tester.pumpWidget(app(false));
+    expect(find.text('Ус 5'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    await tester.pumpWidget(app(true));
+    expect(find.byType(Image), findsNWidgets(2));
+  });
+
+  test('mnsl.mn: хайлтын хариу, видеоны хаягийг уншина', () async {
+    final client = MockClient((req) async {
+      if (req.url.path.endsWith('/wp-json/wp/v2/ug')) {
+        expect(req.url.queryParameters['search'], 'ус');
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode([
+              {
+                'title': {'rendered': '1054. үнэртэй ус'},
+                'link': 'https://mnsl.mn/ug/1054-%d2%af%d0%bd%d1%8d%d1%80%d1%82%d1%8d%d0%b9-%d1%83%d1%81/',
+              },
+              {
+                'title': {'rendered': 'гарчиггүй'},
+                'link': 'https://mnsl.mn/x/',
+              },
+            ]),
+          ),
+          200,
+        );
+      }
+      return http.Response.bytes(
+        utf8.encode(
+          '<video><source src="https://mnsl.mn/a/1054_%D0%A3%D0%A1.mp4" type="video/mp4"></video>',
+        ),
+        200,
+      );
+    });
+    final results = await searchSigns('ус', client: client);
+    expect(results.length, 1);
+    expect(results.first.id, 1054);
+    expect(results.first.title, 'үнэртэй ус');
+    expect(results.first.page, 'https://mnsl.mn/ug/1054-үнэртэй-ус/');
+    expect(
+      await fetchVideo(results.first.page, client: client),
+      'https://mnsl.mn/a/1054_УС.mp4',
+    );
+  });
+
+  test('Миний дохио: демо 50-аар эхэлж, давхардуулахгүй нэмж, хасна', () {
+    SharedPreferences.setMockInitialValues({});
+    final settings = AppSettings();
+    expect(settings.phrases.length, 50);
+    expect({for (final p in demoPhrases) p.id}.length, 50); // давхардалгүй
+    settings.addPhrase(demoPhrases.first);
+    expect(settings.phrases.length, 50);
+    settings.addPhrase(const SignPhrase(1054, 'үнэртэй ус', 'v', 'p'));
+    expect(settings.phrases.last.id, 1054);
+    settings.removePhrase(28);
+    expect(settings.phrases.any((p) => p.id == 28), isFalse);
+  });
+
+  test('Хуучин 10 дохиотой жагсаалтад шинэ демо нэмэгдэж, өөрийнх хэвээр', () {
+    const mine = [
+      SignPhrase(1054, 'үнэртэй ус', 'v', 'p'),
+      SignPhrase(137, 'Баярлалаа', 'v', 'p'),
+    ];
+    final merged = mergeDemoPhrases(mine);
+    expect(merged.first.id, 1054); // хэрэглэгчийн дараалал эхэндээ
+    expect(merged.length, 51);
+    expect(merged.where((p) => p.id == 137).length, 1);
+  });
+
+  test('Чангаар хэлэх: урт бичвэрийг хувааж, WAV-уудыг нэгтгэнэ', () {
+    expect(splitForSpeech('  Сайн   байна уу? '), ['Сайн байна уу?']);
+    final long = List.filled(30, 'Өнөөдөр цаг агаар сайхан байна.').join(' ');
+    final parts = splitForSpeech(long, max: 100);
+    expect(parts.every((p) => p.length <= 100), isTrue);
+    expect(parts.join(' '), long);
+    expect(parts.first.endsWith('.'), isTrue); // өгүүлбэрийн заагаар таслана
+
+    final a = encodeWav(Float32List.fromList(List.filled(100, 0.1)));
+    final b = encodeWav(Float32List.fromList(List.filled(60, -0.1)));
+    final joined = joinWav([a, b]);
+    final view = ByteData.sublistView(joined);
+    expect(joined.length, 44 + 320);
+    expect(view.getUint32(40, Endian.little), 320); // data хэмжээ
+    expect(view.getUint32(4, Endian.little), joined.length - 8);
+    expect(
+      view.getInt16(44 + 100 * 2, Endian.little),
+      lessThan(0),
+    ); // 2 дахь хэсэг араас
+  });
+
+  test(
+    'Чангаар хэлэх: Chimege TTS-ийн хүсэлт, давтан хэлэхэд сервер дуудахгүй',
+    () async {
+      var calls = 0;
+      final wav = encodeWav(Float32List(10));
+      final client = MockClient((req) async {
+        calls++;
+        expect(req.url.toString(), 'https://api.chimege.com/v1.2/synthesize');
+        expect(req.headers['Token'], 'tok');
+        expect(req.headers['voice-id'], isNotEmpty);
+        expect(utf8.decode(req.bodyBytes), 'Баярлалаа');
+        return http.Response.bytes(wav, 200);
+      });
+      final speaker = Speaker(client: client, token: 'tok');
+      expect(speaker.available, isTrue);
+      expect(await speaker.synthesize('Баярлалаа '), wav);
+      expect(await speaker.synthesize('Баярлалаа'), wav);
+      expect(calls, 1);
+
+      final bad = Speaker(
+        client: MockClient((_) async => http.Response('', 403)),
+        token: 'x',
+      );
+      expect(
+        () => bad.synthesize('а'),
+        throwsA(
+          isA<SpeakerException>().having(
+            (e) => e.message,
+            'message',
+            contains('эрх'),
+          ),
+        ),
+      );
+      expect(Speaker(token: '').available, isFalse);
+    },
+  );
 
   test('Ярианы ангиллууд YAMNet-д байгаа; мэдрэмж нэрийн босгыг өөрчилнө', () {
     for (final name in speechClasses) {

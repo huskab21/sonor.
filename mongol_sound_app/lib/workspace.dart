@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 
 import 'glass.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
+import 'speaker.dart';
 import 'transcriber.dart';
+import 'sign.dart';
 
 /// Дохионы хэлээр хариулах «Sign Bridge» аппыг нээх холбоос. ТААМАГ: жинхэнэ холбоосыг
 /// (URL scheme) аппын хөгжүүлэгчээс аваад энд солино.
@@ -19,15 +21,17 @@ class WorkspaceMessage {
 }
 
 /// Ажлын байрны харилцаа: хажуугийн хүний яриаг бичвэр болгож харуулна, хариугаа бичээд
-/// том үсгээр үзүүлнэ. Яваандаа байгууллагын чатбот энд нэмэгдэнэ.
+/// (эсвэл дохионы гараар) том үсгээр үзүүлж, чангаар хэлүүлнэ. Яваандаа байгууллагын чатбот энд нэмэгдэнэ.
 class WorkspaceScreen extends StatefulWidget {
   const WorkspaceScreen({
     super.key,
     required this.engine,
     required this.messages,
     this.transcriber,
+    this.speaker,
   });
   final SoundEngine engine;
+  final Speaker? speaker;
 
   /// Хуудас солигдоход алга болохгүйн тулд жагсаалтыг эзэн дэлгэц хадгална.
   final List<WorkspaceMessage> messages;
@@ -40,8 +44,12 @@ class WorkspaceScreen extends StatefulWidget {
 class _WorkspaceScreenState extends State<WorkspaceScreen> {
   static const int _maxSeconds = 60;
   late final Transcriber _transcriber = widget.transcriber ?? Transcriber();
+  late final Speaker _speaker = widget.speaker ?? Speaker();
+  bool _speakOut = true; // илгээсэн хариуг автоматаар чангаар хэлэх
+  bool _speaking = false;
   final _reply = TextEditingController();
   final _scroll = ScrollController();
+  bool _signKeys = false; // дохионы үсгийн гар нээлттэй эсэх
   bool _recording = false;
   bool _working = false;
   String? _error;
@@ -49,6 +57,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   @override
   void dispose() {
     if (_recording) widget.engine.stopSample();
+    _speaker.dispose();
     _reply.dispose();
     _scroll.dispose();
     super.dispose();
@@ -106,6 +115,23 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     if (text.isEmpty) return;
     _reply.clear();
     _add(WorkspaceMessage(text, mine: true));
+    if (_speakOut && _speaker.available) _say(text);
+  }
+
+  /// Бичвэрийг чангаар хэлнэ (Chimege TTS).
+  Future<void> _say(String text) async {
+    if (_speaking) return;
+    setState(() {
+      _speaking = true;
+      _error = null;
+    });
+    try {
+      await _speaker.speak(text);
+    } on SpeakerException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _speaking = false);
+    }
   }
 
   String _clock(DateTime t) =>
@@ -114,51 +140,63 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   Widget _bubble(BuildContext context, WorkspaceMessage m) {
     final ink = inkOf(context);
     final paper = Theme.of(context).colorScheme.surface;
+    final canSay = m.mine && _speaker.available;
     return Align(
       alignment: m.mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
-        ),
-        decoration: BoxDecoration(
-          // Миний бичсэн нь урвуу өнгөтэй: хажуугийн хүнд уншихад тод
-          color: m.mine ? ink : ink.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  m.mine ? Icons.keyboard : Icons.record_voice_over,
-                  size: 14,
-                  color: (m.mine ? paper : ink).withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${m.mine ? 'Би' : 'Яриа'} · ${_clock(m.time)}',
-                  style: TextStyle(
-                    fontSize: 12,
+      child: GestureDetector(
+        onTap: canSay ? () => _say(m.text) : null,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+          ),
+          decoration: BoxDecoration(
+            // Миний бичсэн нь урвуу өнгөтэй: хажуугийн хүнд уншихад тод
+            color: m.mine ? ink : ink.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    m.mine ? Icons.keyboard : Icons.record_voice_over,
+                    size: 14,
                     color: (m.mine ? paper : ink).withValues(alpha: 0.6),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              m.text,
-              style: TextStyle(
-                fontSize: m.mine ? 24 : 20,
-                height: 1.3,
-                fontWeight: m.mine ? FontWeight.w600 : FontWeight.w400,
-                color: m.mine ? paper : ink,
+                  const SizedBox(width: 6),
+                  SText(
+                    '${m.mine ? 'Би' : 'Яриа'} · ${_clock(m.time)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: (m.mine ? paper : ink).withValues(alpha: 0.6),
+                    ),
+                  ),
+                  if (canSay) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.volume_up,
+                      size: 15,
+                      color: paper.withValues(alpha: 0.6),
+                    ),
+                  ],
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              SText(
+                m.text,
+                style: TextStyle(
+                  fontSize: m.mine ? 24 : 20,
+                  height: 1.3,
+                  fontWeight: m.mine ? FontWeight.w600 : FontWeight.w400,
+                  color: m.mine ? paper : ink,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -180,7 +218,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     if (opened || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Sign Bridge апп энэ утсанд суугаагүй байна.'),
+        content: SText('Sign Bridge апп энэ утсанд суугаагүй байна.'),
       ),
     );
   }
@@ -188,19 +226,31 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   @override
   Widget build(BuildContext context) {
     final faint = faintOf(context);
+    final sign = SignScope.of(context);
+    final signKeys = sign && _signKeys;
     final messages = widget.messages;
     final status = _recording
         ? 'Сонсож байна… дуусмагц дахин дарна'
         : _working
         ? 'Бичвэр болгож байна…'
+        : _speaking
+        ? 'Чангаар хэлж байна…'
         : _error;
     return Backdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Workspace'),
+          title: const SText('Workspace'),
           backgroundColor: Colors.transparent,
           actions: [
+            if (_speaker.available)
+              IconButton(
+                icon: Icon(_speakOut ? Icons.volume_up : Icons.volume_off),
+                tooltip: _speakOut
+                    ? 'Хариуг чангаар хэлэх: асаалттай'
+                    : 'Хариуг чангаар хэлэх: унтраалттай',
+                onPressed: () => setState(() => _speakOut = !_speakOut),
+              ),
             if (messages.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.delete_sweep_outlined),
@@ -217,11 +267,11 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                 Expanded(
                   child: messages.isEmpty
                       ? Center(
-                          child: Text(
+                          child: SText(
                             _transcriber.available
                                 ? 'Доорх товчийг дараад хажуугийн хүнээ яриулна.\n'
                                       'Хэлсэн үг нь энд бичвэрээр гарна.\n\n'
-                                      'Хариугаа доор бичвэл том үсгээр харагдана.'
+                                      'Хариугаа доор бичвэл том үсгээр харагдаж, чангаар хэлэгдэнэ.'
                                 : 'Яриа таних үйлчилгээ хараахан холбогдоогүй байна.\n\n'
                                       'Хариугаа доор бичиж хажуугийн хүндээ үзүүлж болно.',
                             textAlign: TextAlign.center,
@@ -238,7 +288,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                 if (status != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
+                    child: SText(
                       status,
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -251,7 +301,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                   icon: Icon(_recording ? Icons.stop : Icons.mic),
                   label: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(
+                    child: SText(
                       _recording ? 'Зогсоох' : 'Яриаг бичвэр болгох',
                       style: const TextStyle(fontSize: 17),
                     ),
@@ -267,16 +317,46 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _reply,
-                          textCapitalization: TextCapitalization.sentences,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _send(),
-                          decoration: const InputDecoration(
-                            hintText: 'Хариу бичих',
-                            border: InputBorder.none,
-                          ),
-                        ),
+                        // Дохионы горимд системийн гарын оронд дохионы үсгийн гар нээгдэнэ
+                        child: sign
+                            ? GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () =>
+                                    setState(() => _signKeys = !_signKeys),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 48,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: ListenableBuilder(
+                                      listenable: _reply,
+                                      builder: (context, _) => SText(
+                                        _reply.text.isEmpty
+                                            ? 'Хариу бичих'
+                                            : _reply.text,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: _reply.text.isEmpty
+                                              ? faint
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : TextField(
+                                controller: _reply,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => _send(),
+                                decoration: const InputDecoration(
+                                  hintText: 'Хариу бичих',
+                                  border: InputBorder.none,
+                                ),
+                              ),
                       ),
                       IconButton.filled(
                         onPressed: _send,
@@ -286,21 +366,34 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _openSignBridge,
-                  icon: const Icon(Icons.sign_language),
-                  label: const Text('Sign Bridge-ээр хариулах'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
+                if (signKeys) ...[
+                  const SizedBox(height: 8),
+                  SignKeyboard(
+                    onChar: (c) => _reply.text += c,
+                    onBackspace: () {
+                      final chars = _reply.text.characters;
+                      if (chars.isNotEmpty) {
+                        _reply.text = chars.skipLast(1).toString();
+                      }
+                    },
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Яриа таних үед бичлэг Chimege-ийн сервер рүү илгээгдэнэ. Ярих хүндээ урьдчилж хэлээрэй.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: faint, fontSize: 11),
-                ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _openSignBridge,
+                    icon: const Icon(Icons.sign_language),
+                    label: const SText('Sign Bridge-ээр хариулах'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SText(
+                    'Яриа таних үед бичлэг Chimege-ийн сервер рүү илгээгдэнэ. Ярих хүндээ урьдчилж хэлээрэй.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: faint, fontSize: 11),
+                  ),
+                ],
               ],
             ),
           ),

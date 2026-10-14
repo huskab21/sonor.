@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Аппын гол товчтой ижил нил ягаан шилжилт -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C13DFF"/><stop offset="0.5" stop-color="#8B3DFF"/><stop offset="1" stop-color="#4A1BB8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="30%" cy="22%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#E6D8FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <g transform="translate(48 6)">
+    <!-- S: дээд том нум нь чихний гадна хүрээ, доод жижиг нум нь дэлбээ -->
+    <path d="M 722 372 C 694 176, 326 156, 306 392 C 292 566, 612 520, 630 676 C 644 800, 498 846, 414 772"
+          fill="none" stroke="url(#s)" stroke-width="104" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- чихний дотор нугалаа -->
+    <path d="M 596 404 C 566 318, 438 322, 438 408 C 438 446, 466 468, 500 478"
+          fill="none" stroke="#3A1590" stroke-width="42" stroke-linecap="round" opacity="0.55"/>
+    <!-- дууны долгион -->
+    <path d="M 300 632 C 266 678, 266 736, 300 782" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" opacity="0.85"/>
+    <path d="M 214 590 C 158 668, 158 748, 214 826" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" opacity="0.45"/>
+  </g>
+</svg>

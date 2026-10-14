@@ -57,6 +57,8 @@ class SoundEngine {
   int? _carry; // хоёр хэсэгт хуваагдсан 16 бит дээжийн эхний байт
   double _prevNameScore = 0;
   final Map<String, DateTime> _lastHit = {};
+  final SustainTracker _sustain = SustainTracker();
+  double _rawLevel = 0; // YAMNet-ийн цонхны өсгөхөөс өмнөх түвшин
 
   // Хэрэглэгчийн заасан чимээ: YAMNet-ийн embedding дээр сургасан жижиг ангилагчид
   Float32List _negativeBank = Float32List(0);
@@ -167,6 +169,7 @@ class SoundEngine {
       final window = Float32List.sublistView(clip, at, at + yamnetSamples);
       if (rms(window) < quietRms) continue;
       _yamnetInput.setAll(0, window);
+      normalizeLevel(_yamnetInput); // таних үеийнхтэй ижил түвшинд
       _invokeYamnet(yamnet);
       embeddings.add(_embedding.buffer.asUint8List());
     }
@@ -260,6 +263,7 @@ class SoundEngine {
   Future<void> stop() async {
     await _subscription?.cancel();
     _subscription = null;
+    _sustain.clear();
     await _recorder.stop();
     _ring.fillRange(0, _ring.length, 0);
     _sinceHop = 0;
@@ -350,6 +354,10 @@ class SoundEngine {
     Float32List? scores;
     if (yamnet != null && (_step.isEven || classifiers.isNotEmpty)) {
       _latest(_yamnetInput);
+      // Холын сул чимээг загварт өгөхөөс өмнө өсгөнө; нам гүмийн шалгалтууд
+      // өсгөхөөс өмнөх түвшнээр хийгдэнэ
+      _rawLevel = rms(_yamnetInput);
+      normalizeLevel(_yamnetInput);
       scores = _invokeYamnet(yamnet);
       for (final i in _speechIndices) {
         if (scores[i] >= _speechGate) _lastSpeechStep = _step;
@@ -391,7 +399,16 @@ class SoundEngine {
         for (final i in _eventClassIndices[e]) {
           if (scores[i] > best) best = scores[i];
         }
-        if (best >= event.threshold * settings.thresholdScale) {
+        final threshold = event.threshold * settings.thresholdScale;
+        // Тасралтгүй чимээ: сул оноо 3 секунд тогтвол мөн дохио өгнө
+        final steady =
+            event.sustained &&
+            _sustain.add(
+              event.id,
+              _rawLevel >= _silenceRms && best >= threshold * sustainedScale,
+            );
+        if (best >= threshold || steady) {
+          if (steady) _sustain.reset(event.id);
           fired = true;
           _alert(
             Detection(
@@ -409,7 +426,7 @@ class SoundEngine {
 
     // Заасан чимээ: дараалсан хоёр цонх босго давбал л дохио өгнө (буруу дохиог бууруулна)
     if (classifiers.isEmpty) return;
-    if (rms(_yamnetInput) < _silenceRms) {
+    if (_rawLevel < _silenceRms) {
       _prevCustomScore.clear();
       return;
     }
@@ -442,7 +459,7 @@ class SoundEngine {
 
   /// Каталогт байхгүй чимээг "... шиг чимээ" гэж түүхэнд тэмдэглэнэ.
   void _describe(Float32List scores) {
-    if (rms(_yamnetInput) < quietRms) return;
+    if (_rawLevel < quietRms) return;
     String? label;
     var best = describeThreshold;
     for (final MapEntry(key: i, value: name) in _describedIndices.entries) {

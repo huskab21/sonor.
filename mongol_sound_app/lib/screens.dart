@@ -6,6 +6,7 @@ import 'rewards.dart';
 import 'settings.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
 import 'sounds.dart';
+import 'sign.dart';
 
 /// Цэсийн хуудсуудын нийтлэг хүрээ.
 class _Page extends StatelessWidget {
@@ -18,7 +19,10 @@ class _Page extends StatelessWidget {
     return Backdrop(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: Text(title), backgroundColor: Colors.transparent),
+        appBar: AppBar(
+          title: SText(title),
+          backgroundColor: Colors.transparent,
+        ),
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -38,7 +42,7 @@ class _Hint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
-      child: Text(
+      child: SText(
         text,
         style: TextStyle(color: faintOf(context), fontSize: 13, height: 1.4),
       ),
@@ -54,7 +58,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 22, 6, 8),
-      child: Text(
+      child: SText(
         text.toUpperCase(),
         style: TextStyle(
           color: faintOf(context),
@@ -83,12 +87,12 @@ class SensitivityCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Text(
+                const SText(
                   'Мэдрэмж',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
-                Text('${(settings.sensitivity * 100).round()}%', style: small),
+                SText('${(settings.sensitivity * 100).round()}%', style: small),
               ],
             ),
             SizedBox(
@@ -103,8 +107,8 @@ class SensitivityCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Буруу дохио бага', style: small),
-                Text('Сул чимээг ч барина', style: small),
+                SText('Буруу дохио бага', style: small),
+                SText('Сул чимээг ч барина', style: small),
               ],
             ),
           ],
@@ -156,8 +160,8 @@ class _NamesScreenState extends State<NamesScreen> {
             child: SwitchListTile(
               value: settings.nameEnabled,
               onChanged: settings.setNameEnabled,
-              title: const Text('Нэр дуудахыг таних'),
-              subtitle: const Text('Хэн нэгэн таныг дуудахад мэдэгдэнэ'),
+              title: const SText('Нэр дуудахыг таних'),
+              subtitle: const SText('Хэн нэгэн таныг дуудахад мэдэгдэнэ'),
             ),
           ),
           const SizedBox(height: 16),
@@ -167,7 +171,7 @@ class _NamesScreenState extends State<NamesScreen> {
                 for (final name in settings.names)
                   ListTile(
                     leading: const Icon(Icons.record_voice_over),
-                    title: Text(name),
+                    title: SText(name),
                     trailing: IconButton(
                       icon: const Icon(Icons.close),
                       tooltip: 'Устгах',
@@ -175,7 +179,7 @@ class _NamesScreenState extends State<NamesScreen> {
                     ),
                   ),
                 if (settings.names.isEmpty)
-                  const ListTile(title: Text('Нэр оруулаагүй байна')),
+                  const ListTile(title: SText('Нэр оруулаагүй байна')),
               ],
             ),
           ),
@@ -253,7 +257,7 @@ class SoundsScreen extends StatelessWidget {
     final sound = settings.addCustomSound(label);
     if (sound == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ийм нэртэй чимээ аль хэдийн байна.')),
+        const SnackBar(content: SText('Ийм нэртэй чимээ аль хэдийн байна.')),
       );
       return;
     }
@@ -278,8 +282,8 @@ class SoundsScreen extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.only(left: 16, right: 6),
       leading: Icon(icon, color: urgent ? urgentAmber : null),
-      title: Text(label),
-      subtitle: notes.isEmpty ? null : Text(notes.join(' · ')),
+      title: SText(label),
+      subtitle: notes.isEmpty ? null : SText(notes.join(' · ')),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -308,8 +312,8 @@ class SoundsScreen extends StatelessWidget {
             child: SwitchListTile(
               value: settings.describeOthers,
               onChanged: settings.setDescribeOthers,
-              title: const Text('Бусад чимээг тэмдэглэх'),
-              subtitle: const Text(
+              title: const SText('Бусад чимээг тэмдэглэх'),
+              subtitle: const SText(
                 'Жагсаалтад байхгүй чимээг «Хөгжим шиг чимээ» гэх мэтээр түүхэнд '
                 'бичнэ. Чичрэхгүй.',
               ),
@@ -333,8 +337,8 @@ class SoundsScreen extends StatelessWidget {
                   ),
                 ListTile(
                   leading: const Icon(Icons.add_circle_outline),
-                  title: const Text('Шинэ чимээ нэмэх'),
-                  subtitle: const Text('Жишээ нь: домофон, угаалгын машин'),
+                  title: const SText('Шинэ чимээ нэмэх'),
+                  subtitle: const SText('Жишээ нь: домофон, угаалгын машин'),
                   onTap: () => _addCustom(context),
                 ),
               ],
@@ -394,7 +398,7 @@ class _NameDialogState extends State<_NameDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Шинэ чимээ'),
+      title: const SText('Шинэ чимээ'),
       content: TextField(
         controller: _controller,
         autofocus: true,
@@ -405,9 +409,9 @@ class _NameDialogState extends State<_NameDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Болих'),
+          child: const SText('Болих'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Үргэлжлүүлэх')),
+        FilledButton(onPressed: _submit, child: const SText('Үргэлжлүүлэх')),
       ],
     );
   }
@@ -467,16 +471,16 @@ class _TeachScreenState extends State<TeachScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
+        title: SText(title),
+        content: SText(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Болих'),
+            child: const SText('Болих'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(action),
+            child: SText(action),
           ),
         ],
       ),
@@ -523,7 +527,7 @@ class _TeachScreenState extends State<TeachScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
+                  SText(
                     count == 0 ? 'Бичлэг заагаагүй' : '$count бичлэг заасан',
                     style: const TextStyle(
                       fontSize: 20,
@@ -549,7 +553,7 @@ class _TeachScreenState extends State<TeachScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  SText(
                     '«Бичих» дараад чимээгээ гаргана, дуусмагц «Зогсоох» дарна '
                     '(дээд тал нь $_maxSeconds секунд). $_goal удаа, өөр өөр зайнаас бичвэл '
                     'илүү сайн танина.',
@@ -567,7 +571,7 @@ class _TeachScreenState extends State<TeachScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    const SText(
                       'Бичиж байна… чимээгээ гаргана уу',
                       textAlign: TextAlign.center,
                     ),
@@ -577,7 +581,7 @@ class _TeachScreenState extends State<TeachScreen> {
                       icon: const Icon(Icons.stop),
                       label: const Padding(
                         padding: EdgeInsets.symmetric(vertical: 14),
-                        child: Text('Зогсоох', style: TextStyle(fontSize: 17)),
+                        child: SText('Зогсоох', style: TextStyle(fontSize: 17)),
                       ),
                     ),
                   ] else
@@ -586,7 +590,7 @@ class _TeachScreenState extends State<TeachScreen> {
                       icon: const Icon(Icons.mic),
                       label: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Text(
+                        child: SText(
                           full ? 'Дээд хязгаарт хүрсэн' : 'Бичих',
                           style: const TextStyle(fontSize: 17),
                         ),
@@ -594,7 +598,7 @@ class _TeachScreenState extends State<TeachScreen> {
                     ),
                   if (_message != null && !_recording) ...[
                     const SizedBox(height: 12),
-                    Text(
+                    SText(
                       _message!,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: _failed ? urgentAmber : null),
@@ -607,12 +611,12 @@ class _TeachScreenState extends State<TeachScreen> {
             if (count > 0)
               TextButton(
                 onPressed: _recording ? null : _clear,
-                child: const Text('Бичлэгүүдийг арилгах'),
+                child: const SText('Бичлэгүүдийг арилгах'),
               ),
             if (widget.custom)
               TextButton(
                 onPressed: _recording ? null : _delete,
-                child: const Text('Энэ чимээг устгах'),
+                child: const SText('Энэ чимээг устгах'),
               ),
             const _Hint(
               'Дуу бичлэг хадгалагдахгүй. Чимээний тоон хээ л утсанд үлдэж, хаашаа ч илгээгдэхгүй.',
@@ -667,7 +671,7 @@ class AppearanceCard extends StatelessWidget {
             for (final (mode, icon, label) in _modes)
               ListTile(
                 leading: Icon(icon),
-                title: Text(label),
+                title: SText(label),
                 trailing: settings.themeMode == mode
                     ? const Icon(Icons.check)
                     : null,
@@ -742,7 +746,7 @@ class _AccountCardState extends State<AccountCard> {
               dimension: 22,
               child: CircularProgressIndicator(strokeWidth: 2.5),
             )
-          : Text(label, style: const TextStyle(fontSize: 17)),
+          : SText(label, style: const TextStyle(fontSize: 17)),
     ),
   );
 
@@ -756,9 +760,9 @@ class _AccountCardState extends State<AccountCard> {
   List<Widget> _signedIn(String email) => [
     const Icon(Icons.check_circle_outline, size: 44),
     const SizedBox(height: 12),
-    const Text('Нэвтэрсэн', textAlign: TextAlign.center),
+    const SText('Нэвтэрсэн', textAlign: TextAlign.center),
     const SizedBox(height: 4),
-    Text(
+    SText(
       email,
       textAlign: TextAlign.center,
       style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
@@ -773,18 +777,18 @@ class _AccountCardState extends State<AccountCard> {
             }, () {}),
       child: const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('Гарах'),
+        child: SText('Гарах'),
       ),
     ),
   ];
 
   List<Widget> _askEmail() => [
-    const Text(
+    const SText(
       'И-мэйлээр нэвтрэх',
       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
     ),
     const SizedBox(height: 8),
-    Text(
+    SText(
       'И-мэйл хаягаа бичнэ. Тань руу 6 оронтой код илгээнэ. Нууц үг хэрэггүй, '
       'анх удаа бол бүртгэл автоматаар үүснэ.',
       style: TextStyle(color: faintOf(context), height: 1.4),
@@ -805,12 +809,12 @@ class _AccountCardState extends State<AccountCard> {
   ];
 
   List<Widget> _askCode(String sentTo) => [
-    const Text(
+    const SText(
       'Кодоо оруулна уу',
       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
     ),
     const SizedBox(height: 8),
-    Text(
+    SText(
       '$sentTo хаяг руу код илгээлээ. И-мэйлээ нээгээд кодыг энд бичнэ. '
       'Ирээгүй бол Spam хавтсаа шалгана уу.',
       style: TextStyle(color: faintOf(context), height: 1.4),
@@ -846,11 +850,11 @@ class _AccountCardState extends State<AccountCard> {
                   _sentTo = null;
                   _error = null;
                 }),
-          child: const Text('Хаяг солих'),
+          child: const SText('Хаяг солих'),
         ),
         TextButton(
           onPressed: _busy ? null : _send,
-          child: const Text('Дахин илгээх'),
+          child: const SText('Дахин илгээх'),
         ),
       ],
     ),
@@ -874,7 +878,7 @@ class _AccountCardState extends State<AccountCard> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: !auth.available
                     ? const [
-                        Text(
+                        SText(
                           'Нэвтрэх үйлчилгээ хараахан холбогдоогүй байна.',
                           textAlign: TextAlign.center,
                         ),

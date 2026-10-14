@@ -10,6 +10,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'glass.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
 import 'sounds.dart';
+import 'sign.dart';
 
 const Color _green = Color(0xFF34C759);
 const int _ticks = 60; // тойргийг 6 градус тутам хуваана
@@ -278,7 +279,7 @@ class _FinderScreenState extends State<FinderScreen> {
                 right: 14,
                 child: Center(
                   child: chip(
-                    Text(
+                    SText(
                       hint,
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -307,7 +308,7 @@ class _FinderScreenState extends State<FinderScreen> {
                         ),
                         const SizedBox(width: 10),
                         Flexible(
-                          child: Text(
+                          child: SText(
                             '${recent?.detection.label ?? 'Чимээ'} · $distance',
                             style: const TextStyle(
                               color: Colors.white,
@@ -379,7 +380,7 @@ class _FinderScreenState extends State<FinderScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Чимээний зүг'),
+          title: const SText('Чимээний зүг'),
           backgroundColor: Colors.transparent,
           actions: [
             IconButton(
@@ -414,7 +415,7 @@ class _FinderScreenState extends State<FinderScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
+                                    SText(
                                       '${(_now * 100).round()}',
                                       style: const TextStyle(
                                         fontSize: 54,
@@ -423,7 +424,7 @@ class _FinderScreenState extends State<FinderScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
+                                    SText(
                                       'чимээний хүч',
                                       style: TextStyle(
                                         color: faint,
@@ -431,7 +432,7 @@ class _FinderScreenState extends State<FinderScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    Text(
+                                    SText(
                                       FinderScreen.metersText(
                                         FinderScreen.meters(_rms),
                                       ),
@@ -440,7 +441,7 @@ class _FinderScreenState extends State<FinderScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text(
+                                    SText(
                                       'барагцаа зай',
                                       style: TextStyle(
                                         color: faint,
@@ -454,7 +455,7 @@ class _FinderScreenState extends State<FinderScreen> {
                           ),
                         ),
                       ),
-                      Text(
+                      SText(
                         guide,
                         textAlign: TextAlign.center,
                         style: TextStyle(
@@ -466,7 +467,7 @@ class _FinderScreenState extends State<FinderScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Text(
+                      SText(
                         'Туршилтын боломж. Зай нь чимээний хүчээр гаргасан барагцаа таамаг: '
                         'чимээ өөрөө чанга, сул байхаас хамаарч зөрнө.',
                         textAlign: TextAlign.center,
@@ -482,7 +483,7 @@ class _FinderScreenState extends State<FinderScreen> {
                           alignment: Alignment.centerLeft,
                           child: Padding(
                             padding: const EdgeInsets.only(left: 6, bottom: 6),
-                            child: Text(
+                            child: SText(
                               'Гараад больсон чимээ',
                               style: TextStyle(color: faint, fontSize: 13),
                             ),
@@ -504,13 +505,13 @@ class _FinderScreenState extends State<FinderScreen> {
                                           ? urgentAmber
                                           : null,
                                     ),
-                                    title: Text(f.detection.label),
-                                    subtitle: Text(
+                                    title: SText(f.detection.label),
+                                    subtitle: SText(
                                       '${FinderScreen.metersText(FinderScreen.meters(f.rms, loudSource: f.detection.urgent))}'
                                       ' · хүч ${(FinderScreen.strength(f.rms) * 100).round()}',
                                       style: TextStyle(color: faint),
                                     ),
-                                    trailing: Text(
+                                    trailing: SText(
                                       _clock(f.detection.time),
                                       style: TextStyle(color: faint),
                                     ),

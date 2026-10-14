@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'glass.dart';
 import 'sounds.dart';
+import 'sign.dart';
 
 /// Дохионы өнгө: нэр цагаан, ус цэнхэр, гал улаан, хаалга тогших бор.
 /// Бусад аюултай чимээ улбар шар, үлдсэн нь цайвар шар.
@@ -26,7 +27,7 @@ Widget _colorPage(Detection d) => Material(
         children: [
           Icon(d.icon, size: 96, color: Colors.black),
           const SizedBox(height: 20),
-          Text(
+          SText(
             d.label,
             textAlign: TextAlign.center,
             style: const TextStyle(
@@ -179,7 +180,7 @@ class _StandbyScreenState extends State<StandbyScreen>
                       color: ink,
                     ),
                     const SizedBox(height: 20),
-                    Text(
+                    SText(
                       flash?.label ??
                           'Сонсож байна\nГарах бол дэлгэцийг дарна уу',
                       textAlign: TextAlign.center,

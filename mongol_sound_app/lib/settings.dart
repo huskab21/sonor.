@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'few_shot.dart';
+import 'phrasebook.dart';
 import 'sounds.dart';
 
 /// Хэрэглэгчийн тохиргоо: нэрс, аль чимээг сонсох, мэдрэмж, харагдац, заасан чимээ.
@@ -25,10 +26,14 @@ class AppSettings extends ChangeNotifier {
   bool describeOthers =
       true; // каталогт байхгүй чимээг "... шиг чимээ" гэж тэмдэглэх
 
+  bool signMode = false; // бичвэрийг дохионы хурууны үсгээр харуулах
   int points = 0; // цуглуулсан оноо (демо, зөвхөн утсанд)
   Set<String> doneTasks = {}; // оноо авсан даалгаврууд
 
   List<CustomSound> customSounds = [];
+
+  /// «Миний дохио» жагсаалт. Анх удаа демо 10 дохиотой эхэлнэ.
+  List<SignPhrase> phrases = [...demoPhrases];
 
   /// Чимээний id -> заасан бичлэгүүд. Бичлэг бүр нь нэг буюу хэд хэдэн embedding
   /// дараалуулсан жагсаалт. Дуу өөрөө хадгалагдахгүй.
@@ -60,9 +65,21 @@ class AppSettings extends ChangeNotifier {
     describeOthers = prefs.getBool('describeOthers') ?? describeOthers;
     onboarded = prefs.getBool('onboarded') ?? onboarded;
     points = prefs.getInt('points') ?? points;
+    signMode = prefs.getBool('signMode') ?? signMode;
     doneTasks = prefs.getStringList('doneTasks')?.toSet() ?? doneTasks;
     themeMode =
         ThemeMode.values.asNameMap()[prefs.getString('themeMode')] ?? themeMode;
+    final storedPhrases = prefs.getString('phrases');
+    if (storedPhrases != null) {
+      phrases = [
+        for (final j in (jsonDecode(storedPhrases) as List))
+          SignPhrase.fromJson(j as Map<String, dynamic>),
+      ];
+      // Демо жагсаалт 10-аас 50 болсон: хуучин хэрэглэгчид шинэ дохиог нэг удаа нэмнэ
+      if ((prefs.getInt('phrasesDemo') ?? 10) < demoPhrases.length) {
+        phrases = mergeDemoPhrases(phrases);
+      }
+    }
     final custom = prefs.getString('customSounds');
     if (custom != null) {
       customSounds = [
@@ -92,8 +109,14 @@ class AppSettings extends ChangeNotifier {
     await prefs.setBool('describeOthers', describeOthers);
     await prefs.setBool('onboarded', onboarded);
     await prefs.setInt('points', points);
+    await prefs.setBool('signMode', signMode);
     await prefs.setStringList('doneTasks', doneTasks.toList());
     await prefs.setString('themeMode', themeMode.name);
+    await prefs.setInt('phrasesDemo', demoPhrases.length);
+    await prefs.setString(
+      'phrases',
+      jsonEncode([for (final p in phrases) p.toJson()]),
+    );
     await prefs.setString(
       'customSounds',
       jsonEncode([
@@ -167,10 +190,26 @@ class AppSettings extends ChangeNotifier {
     _changed();
   }
 
+  void addPhrase(SignPhrase phrase) {
+    if (phrases.any((p) => p.id == phrase.id)) return;
+    phrases = [...phrases, phrase];
+    _changed();
+  }
+
+  void removePhrase(int id) {
+    phrases = phrases.where((p) => p.id != id).toList();
+    _changed();
+  }
+
   /// Даалгаврын оноог нэг удаа нэмнэ.
   void earn(String task, int amount) {
     if (!doneTasks.add(task)) return;
     points += amount;
+    _changed();
+  }
+
+  void setSignMode(bool value) {
+    signMode = value;
     _changed();
   }
 

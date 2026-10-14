@@ -9,6 +9,7 @@ import 'auth.dart';
 import 'finder.dart';
 import 'glass.dart';
 import 'notifier.dart';
+import 'phrasebook.dart';
 import 'screens.dart';
 import 'settings.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
@@ -16,8 +17,15 @@ import 'sounds.dart';
 import 'standby.dart';
 import 'welcome.dart';
 import 'workspace.dart';
+import 'sign.dart';
+
+/// Танилцуулгын зургийн build (`--dart-define=SONOR_SLIDES=true`): вэб демогийн
+/// «Демо» шошгыг нууж, апп утсан дээрхтэй адил харагдана.
+const bool slidesBuild = bool.fromEnvironment('SONOR_SLIDES');
 
 void main() {
+  // Зургийн build: товчийг бичвэрээр нь олж дарахын тулд accessibility модыг асаана
+  if (slidesBuild) WidgetsFlutterBinding.ensureInitialized().ensureSemantics();
   runApp(const MongolSoundApp());
 }
 
@@ -112,6 +120,9 @@ class _MongolSoundAppState extends State<MongolSoundApp> {
         theme: _theme(Brightness.light),
         darkTheme: _theme(Brightness.dark),
         themeMode: _settings.themeMode,
+        // Дохионы горимыг бүх хуудас, цонхонд дамжуулна
+        builder: (context, child) =>
+            SignScope(enabled: _settings.signMode, child: child!),
         home: !_settings.loaded
             ? const Backdrop(child: SizedBox.expand())
             : !_settings.onboarded
@@ -305,6 +316,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
             (Icons.graphic_eq, 'Чимээ таних'),
             (Icons.record_voice_over_outlined, 'Нэрс'),
             (Icons.forum_outlined, 'Workspace'),
+            (Icons.video_library_outlined, 'Миний дохио'),
             (Icons.explore_outlined, 'Чимээний зүг'),
             (Icons.person_outline, 'Тохиргоо'),
           ],
@@ -318,8 +330,9 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
             hasNameModel: _engine.hasNameModel,
           ),
           3 => WorkspaceScreen(engine: _engine, messages: _workspace),
-          4 => FinderScreen(engine: _engine, fixes: _fixes),
-          5 => ProfileScreen(settings: _settings, auth: widget.auth),
+          4 => PhrasebookScreen(settings: _settings),
+          5 => FinderScreen(engine: _engine, fixes: _fixes),
+          6 => ProfileScreen(settings: _settings, auth: widget.auth),
           // Нүүр: жижиг дэлгэцэд багтахгүй бол гүйлгэж болно
           _ => SafeArea(
             bottom: false,
@@ -345,14 +358,14 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Text(
+                              const SText(
                                 'Sonor',
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              if (_engine.isDemo) ...[
+                              if (_engine.isDemo && !slidesBuild) ...[
                                 const SizedBox(width: 10),
                                 Glass(
                                   radius: 10,
@@ -360,7 +373,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                     horizontal: 8,
                                     vertical: 3,
                                   ),
-                                  child: Text(
+                                  child: SText(
                                     'Демо',
                                     style: TextStyle(
                                       fontSize: 12,
@@ -370,6 +383,10 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                 ),
                               ],
                               const Spacer(),
+                              LanguageToggle(
+                                sign: _settings.signMode,
+                                onChanged: _settings.setSignMode,
+                              ),
                               if (_listening)
                                 IconButton(
                                   tooltip: 'Хүлээх горим',
@@ -379,10 +396,10 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                 ),
                             ],
                           ),
-                          if (_engine.isDemo)
+                          if (_engine.isDemo && !slidesBuild)
                             Padding(
                               padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
-                              child: Text(
+                              child: SText(
                                 'Вэб демо: дохио, яриа таних нь жишээ. '
                                 'Жинхэнээсээ сонсдог апп iPhone дээр ажиллана.',
                                 style: TextStyle(fontSize: 12, color: faint),
@@ -423,7 +440,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                     child: flash == null
                                         ? Center(
                                             key: const ValueKey('idle'),
-                                            child: Text(
+                                            child: SText(
                                               _error ??
                                                   (!_ready
                                                       ? 'Загвар ачаалж байна…'
@@ -457,7 +474,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                                   ),
                                                   const SizedBox(width: 18),
                                                   Expanded(
-                                                    child: Text(
+                                                    child: SText(
                                                       flash.label,
                                                       style: TextStyle(
                                                         color: flashInk,
@@ -485,7 +502,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                 left: 6,
                                 bottom: 6,
                               ),
-                              child: Text(
+                              child: SText(
                                 'Сүүлд таньсан',
                                 style: TextStyle(color: faint, fontSize: 13),
                               ),
@@ -502,13 +519,13 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                             ? urgentAmber
                                             : (d.guess ? faint : null),
                                       ),
-                                      title: Text(
+                                      title: SText(
                                         d.label,
                                         style: d.guess
                                             ? TextStyle(color: faint)
                                             : null,
                                       ),
-                                      trailing: Text(
+                                      trailing: SText(
                                         _clock(d.time),
                                         style: TextStyle(color: faint),
                                       ),
@@ -553,7 +570,7 @@ class AdBanner extends StatelessWidget {
               color: inkOf(context).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
+            child: const SText(
               'P',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
@@ -563,11 +580,11 @@ class AdBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                SText(
                   'Sponsored by',
                   style: TextStyle(color: faint, fontSize: 12),
                 ),
-                const Text(
+                const SText(
                   'Pinecone',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                 ),
@@ -580,6 +597,8 @@ class AdBanner extends StatelessWidget {
               border: Border.all(color: faint),
               borderRadius: BorderRadius.circular(5),
             ),
+            // Жижиг шошго: дохионы горимд ч энгийн үсгээр (дохиогоор бол зар бүхэлдээ
+            // шахагдаж эвдэрнэ)
             child: Text(
               'Жишээ зар',
               style: TextStyle(color: faint, fontSize: 11),

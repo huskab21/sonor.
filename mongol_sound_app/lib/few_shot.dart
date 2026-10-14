@@ -19,6 +19,24 @@ double rms(Float32List x) {
   return math.sqrt(sum / x.length);
 }
 
+/// Нам дууг YAMNet-д өгөхөөс өмнө өсгөнө (байран дээр нь): холын, сул чимээний
+/// түвшнийг [target] хүртэл, дээд тал нь [maxGain] дахин. [floor]-оос нам бол зөвхөн
+/// шуугиан тул хөндөхгүй; аль хэдийн чанга дууг мөн хөндөхгүй. Өсгөсөн үржвэрийг буцаана.
+double normalizeLevel(
+  Float32List x, {
+  double target = 0.05,
+  double maxGain = 8,
+  double floor = 0.002,
+}) {
+  final level = rms(x);
+  if (level < floor || level >= target) return 1;
+  final gain = math.min(target / level, maxGain);
+  for (var i = 0; i < x.length; i++) {
+    x[i] = (x[i] * gain).clamp(-1.0, 1.0);
+  }
+  return gain;
+}
+
 /// Векторыг нэгж урттай болгоно (байран дээр нь).
 void normalize(Float32List v) {
   var sum = 0.0;

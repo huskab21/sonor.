@@ -35,6 +35,7 @@ class SoundEvent {
     this.urgent = false,
     this.defaultOn = true,
     this.mark,
+    this.sustained = false,
   });
   final String id;
   final SoundCategory category;
@@ -45,6 +46,38 @@ class SoundEvent {
   final bool urgent; // аюултай чимээ: илүү хүчтэй анхааруулна
   final bool defaultOn;
   final String? mark; // мэдэгдлийн гарчгийн өнгөт тэмдэг
+
+  /// Хэдэн секунд тасралтгүй үргэлжилдэг чимээ (ус, дохиолол): босгын хагаст хүрсэн
+  /// сул оноо 3 секунд тогтвол мөн дохио өгнө.
+  final bool sustained;
+}
+
+/// Тасралтгүй чимээний сул босго: үндсэн босгыг үүгээр үржүүлнэ.
+const double sustainedScale = 0.5;
+
+/// Сул боловч тогтвортой сонсогдож буй чимээг барина: сүүлийн [window] шалгалтын
+/// [needed]-д нь сул босго давсан бол true. Шалгалт 0.5 секунд тутам тул 6 = 3 секунд;
+/// нэг удаа тасалдахыг зөвшөөрнө.
+class SustainTracker {
+  SustainTracker({this.window = 6, this.needed = 5});
+  final int window;
+  final int needed;
+  final Map<String, int> _bits = {};
+
+  bool add(String id, bool hit) {
+    final bits =
+        (((_bits[id] ?? 0) << 1) | (hit ? 1 : 0)) & ((1 << window) - 1);
+    _bits[id] = bits;
+    var count = 0;
+    for (var b = bits; b != 0; b >>= 1) {
+      count += b & 1;
+    }
+    return count >= needed;
+  }
+
+  /// Дохио өгсний дараа: дахин өгөхөд шинээр 3 секунд тогтох ёстой.
+  void reset(String id) => _bits.remove(id);
+  void clear() => _bits.clear();
 }
 
 const List<SoundEvent> soundEvents = [
@@ -57,6 +90,7 @@ const List<SoundEvent> soundEvents = [
     0.30,
     urgent: true,
     mark: '🔴',
+    sustained: true,
   ),
   SoundEvent(
     'siren',
@@ -72,6 +106,7 @@ const List<SoundEvent> soundEvents = [
     ],
     0.35,
     urgent: true,
+    sustained: true,
   ),
   SoundEvent(
     'car_alarm',
@@ -80,11 +115,17 @@ const List<SoundEvent> soundEvents = [
     'Машины дохиолол',
     ['Car alarm'],
     0.35,
+    sustained: true,
   ),
-  SoundEvent('alarm_clock', SoundCategory.alarms, Icons.alarm, 'Сэрүүлэг', [
-    'Alarm clock',
-    'Alarm',
-  ], 0.35),
+  SoundEvent(
+    'alarm_clock',
+    SoundCategory.alarms,
+    Icons.alarm,
+    'Сэрүүлэг',
+    ['Alarm clock', 'Alarm'],
+    0.35,
+    sustained: true,
+  ),
   // YAMNet-ийн ангилалгүй: дууны түвшин удаан өндөр байвал хөдөлгүүр өөрөө дохио өгнө
   SoundEvent(
     loudSoundId,
@@ -136,6 +177,7 @@ const List<SoundEvent> soundEvents = [
     'Утас дуугарах',
     ['Telephone bell ringing', 'Ringtone'],
     0.35,
+    sustained: true,
   ),
   SoundEvent(
     'car_horn',
@@ -153,6 +195,7 @@ const List<SoundEvent> soundEvents = [
     ['Steam whistle', 'Boiling'],
     0.35,
     defaultOn: false,
+    sustained: true,
   ),
   SoundEvent(
     'water',
@@ -163,11 +206,17 @@ const List<SoundEvent> soundEvents = [
     0.40,
     defaultOn: false,
     mark: '🔵',
+    sustained: true,
   ),
-  SoundEvent('baby', SoundCategory.people, Icons.child_care, 'Хүүхэд уйлах', [
-    'Baby cry, infant cry',
-    'Crying, sobbing',
-  ], 0.35),
+  SoundEvent(
+    'baby',
+    SoundCategory.people,
+    Icons.child_care,
+    'Хүүхэд уйлах',
+    ['Baby cry, infant cry', 'Crying, sobbing'],
+    0.35,
+    sustained: true,
+  ),
   SoundEvent(
     'shout',
     SoundCategory.people,

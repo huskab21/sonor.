@@ -44,6 +44,7 @@ dependencies:
   flutter_compass: ^0.8.1
   http: ^1.6.0
   camera: ^0.12.1
+  video_player: ^2.14.1
 
 dev_dependencies:
   flutter_test:
@@ -70,6 +71,7 @@ flutter:
   # YAMNet болон нэр таних загварууд (assets хавтас доторх бүх файл)
   assets:
     - assets/
+    - assets/signs/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

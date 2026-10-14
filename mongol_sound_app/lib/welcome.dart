@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'auth.dart';
 import 'glass.dart';
 import 'screens.dart';
+import 'sign.dart';
 
 /// Анх нээхэд гарах танилцуулга: угтах дэлгэц, дараа нь (холбогдсон бол) и-мэйлээр нэвтрэх.
 /// Нэвтрэх нь заавал биш, алгасаад үнэгүй ашиглаж болно.
@@ -57,7 +58,7 @@ class _WelcomeStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Expanded(child: Center(child: HeadphoneHero())),
-                const Text(
+                const SText(
                   'Чимээг мэдэр',
                   style: TextStyle(
                     fontSize: 32,
@@ -65,7 +66,7 @@ class _WelcomeStep extends StatelessWidget {
                     height: 1.1,
                   ),
                 ),
-                Text(
+                SText(
                   'Дуудлагаа бүү алд',
                   style: TextStyle(
                     fontSize: 32,
@@ -75,7 +76,7 @@ class _WelcomeStep extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
+                SText(
                   'Sonor таны оронд сонсож, нэрийг тань дуудах болон хонх, дохиолол зэрэг '
                   'чухал чимээг дэлгэц, чичиргээгээр мэдэгдэнэ.',
                   style: TextStyle(fontSize: 16, height: 1.4, color: faint),
@@ -114,7 +115,7 @@ class _LoginStep extends StatelessWidget {
                         onPressed: onDone,
                         child: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 14),
-                          child: Text(
+                          child: SText(
                             'Үргэлжлүүлэх',
                             style: TextStyle(fontSize: 17),
                           ),
@@ -124,7 +125,7 @@ class _LoginStep extends StatelessWidget {
                         onPressed: onDone,
                         child: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 10),
-                          child: Text(
+                          child: SText(
                             'Нэвтрэхгүйгээр үнэгүй ашиглах',
                             style: TextStyle(fontSize: 16),
                           ),
@@ -294,7 +295,7 @@ class _SwipeToStartState extends State<SwipeToStart> {
                   Center(
                     child: Opacity(
                       opacity: (1 - _dx / travel * 1.5).clamp(0.0, 1.0),
-                      child: Text(
+                      child: SText(
                         widget.label,
                         style: const TextStyle(
                           fontSize: 17,

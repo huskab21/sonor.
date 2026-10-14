@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'sign.dart';
+
 /// Аппын өнгө: гүн хар хөх дэвсгэр дээр нил ягаан өргөлт. Яаралтай дохиог шараар ялгана.
 const Color urgentAmber = Color(0xFFFF9F0A);
 const Color accentPurple = Color(0xFF8B3DFF);
@@ -116,10 +118,12 @@ class NavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = inkOf(context);
+    // 7 цэс 375 цэгийн өргөнтэй дэлгэцэнд багтахын тулд дүрсийг жижигрүүлнэ
+    final dot = items.length > 6 ? 42.0 : 48.0;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
         child: Center(
           heightFactor: 1,
           child: ConstrainedBox(
@@ -142,8 +146,8 @@ class NavBar extends StatelessWidget {
                           onTap: () => onTap(i),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            width: 48,
-                            height: 48,
+                            width: dot,
+                            height: dot,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: i == index ? accentGradient : null,
@@ -157,7 +161,7 @@ class NavBar extends StatelessWidget {
                             ),
                             child: Icon(
                               icon,
-                              size: 24,
+                              size: dot / 2,
                               color: i == index
                                   ? Colors.white
                                   : ink.withValues(alpha: 0.7),
@@ -353,7 +357,7 @@ class _LiquidButtonState extends State<LiquidButton>
                                   )
                                 : Icon(widget.icon, color: content, size: 34),
                             Expanded(
-                              child: Text(
+                              child: SText(
                                 widget.label,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
