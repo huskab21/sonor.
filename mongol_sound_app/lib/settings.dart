@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'few_shot.dart';
 import 'phrasebook.dart';
+import 'sentence.dart';
 import 'sounds.dart';
 
 /// Хэрэглэгчийн тохиргоо: нэрс, аль чимээг сонсох, мэдрэмж, харагдац, заасан чимээ.
@@ -35,9 +36,21 @@ class AppSettings extends ChangeNotifier {
   /// «Миний дохио» жагсаалт. Анх удаа демо 10 дохиотой эхэлнэ.
   List<SignPhrase> phrases = [...demoPhrases];
 
+  /// «Миний дохио»-ийн жагсаалтууд. Аль нэгэнд байгаа дохио «зүрхэлсэн» тооцогдоно.
+  List<SignList> signLists = [...demoSignLists];
+  List<SignSentence> sentences = []; // дохиогоор зохиосон өгүүлбэрүүд
+  Map<String, int> lessonStars =
+      {}; // «Сургалт»: хичээл -> хамгийн сайн ⭐ (1-3)
+  bool workExpanded = false; // «Ажил дээр»-т толь бичгийн сэдвийг нэмсэн эсэх
+
   /// Чимээний id -> заасан бичлэгүүд. Бичлэг бүр нь нэг буюу хэд хэдэн embedding
   /// дараалуулсан жагсаалт. Дуу өөрөө хадгалагдахгүй.
   Map<String, List<Float32List>> samples = {};
+
+  /// Чимээний id -> «Буруу» гэж тэмдэглэсэн үеийн embedding-үүд. Ийм чимээнд дахин
+  /// дохио өгөхгүй (яаралтай чимээнээс бусад).
+  Map<String, List<Float32List>> falseAlarms = {};
+  static const int maxFalseAlarms = 30;
 
   /// Заасан бичлэг өөрчлөгдөх бүрд нэмэгдэнэ (хөдөлгүүр дахин сургах дохио).
   int samplesRevision = 0;
@@ -80,12 +93,41 @@ class AppSettings extends ChangeNotifier {
         phrases = mergeDemoPhrases(phrases);
       }
     }
+    workExpanded = prefs.getBool('workExpanded') ?? workExpanded;
+    final storedStars = prefs.getString('lessonStars');
+    if (storedStars != null) {
+      lessonStars = (jsonDecode(storedStars) as Map<String, dynamic>).map(
+        (k, v) => MapEntry(k, v as int),
+      );
+    }
+    final storedSentences = prefs.getString('sentences');
+    if (storedSentences != null) {
+      sentences = [
+        for (final j in (jsonDecode(storedSentences) as List))
+          SignSentence.fromJson(j as Map<String, dynamic>),
+      ];
+    }
+    final storedLists = prefs.getString('signLists');
+    if (storedLists != null) {
+      signLists = [
+        for (final j in (jsonDecode(storedLists) as List))
+          SignList.fromJson(j as Map<String, dynamic>),
+      ];
+    }
     final custom = prefs.getString('customSounds');
     if (custom != null) {
       customSounds = [
         for (final c in jsonDecode(custom) as List)
           CustomSound(c['id'] as String, c['label'] as String),
       ];
+    }
+    final storedFalse = prefs.getString('falseAlarms');
+    if (storedFalse != null) {
+      falseAlarms = {
+        for (final MapEntry(:key, :value)
+            in (jsonDecode(storedFalse) as Map<String, dynamic>).entries)
+          key: [for (final s in value as List) decodeFloats(s as String)],
+      };
     }
     final stored = prefs.getString('samples');
     if (stored != null) {
@@ -117,12 +159,55 @@ class AppSettings extends ChangeNotifier {
       'phrases',
       jsonEncode([for (final p in phrases) p.toJson()]),
     );
+    await prefs.setBool('workExpanded', workExpanded);
+    await prefs.setString('lessonStars', jsonEncode(lessonStars));
+    await prefs.setString(
+      'sentences',
+      jsonEncode([for (final x in sentences) x.toJson()]),
+    );
+    await prefs.setString(
+      'signLists',
+      jsonEncode([for (final l in signLists) l.toJson()]),
+    );
     await prefs.setString(
       'customSounds',
       jsonEncode([
         for (final c in customSounds) {'id': c.id, 'label': c.label},
       ]),
     );
+  }
+
+  Future<void> _saveFalseAlarms() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'falseAlarms',
+      jsonEncode({
+        for (final MapEntry(:key, :value) in falseAlarms.entries)
+          key: value.map(encodeFloats).toList(),
+      }),
+    );
+  }
+
+  int get falseAlarmCount =>
+      falseAlarms.values.fold(0, (sum, list) => sum + list.length);
+
+  /// «Буруу» гэж тэмдэглэнэ. Чимээ бүрд хамгийн сүүлийн [maxFalseAlarms] хадгална.
+  void addFalseAlarm(String id, Float32List embedding) {
+    final list = [...?falseAlarms[id], embedding];
+    falseAlarms = {
+      ...falseAlarms,
+      id: list.length > maxFalseAlarms
+          ? list.sublist(list.length - maxFalseAlarms)
+          : list,
+    };
+    _saveFalseAlarms();
+    notifyListeners();
+  }
+
+  void clearFalseAlarms() {
+    falseAlarms = {};
+    _saveFalseAlarms();
+    notifyListeners();
   }
 
   Future<void> _saveSamples() async {
@@ -198,6 +283,108 @@ class AppSettings extends ChangeNotifier {
 
   void removePhrase(int id) {
     phrases = phrases.where((p) => p.id != id).toList();
+    signLists = [
+      for (final l in signLists) l.withIds([...l.ids.where((i) => i != id)]),
+    ];
+    _changed();
+  }
+
+  /// Хичээл дууссаны ⭐-ийг хадгална (өмнөхөөс сайн бол). Анх дуусгахад оноо нэмнэ.
+  void finishLesson(String id, int stars) {
+    if (stars > (lessonStars[id] ?? 0)) {
+      lessonStars = {...lessonStars, id: stars};
+    }
+    if (doneTasks.add('lesson_$id')) points += 10;
+    _changed();
+  }
+
+  /// Өгүүлбэрийг хадгална (ижил дугаартай бол солино).
+  void saveSentence(SignSentence sentence) {
+    final i = sentences.indexWhere((x) => x.id == sentence.id);
+    sentences = i < 0
+        ? [...sentences, sentence]
+        : [...sentences.take(i), sentence, ...sentences.skip(i + 1)];
+    _changed();
+  }
+
+  void removeSentence(String id) {
+    sentences = sentences.where((x) => x.id != id).toList();
+    _changed();
+  }
+
+  /// Аль нэг жагсаалтад байгаа (зүрхэлсэн) дохионууд. Зөвхөн эдгээрийн бичлэг утсанд
+  /// хадгалагдана.
+  List<SignPhrase> get heartedPhrases {
+    final ids = {for (final l in signLists) ...l.ids};
+    return [...phrases.where((p) => ids.contains(p.id))];
+  }
+
+  /// Жагсаалтын дохионууд, жагсаалтад нэмсэн дарааллаар.
+  List<SignPhrase> phrasesIn(SignList list) {
+    final byId = {for (final p in phrases) p.id: p};
+    return [for (final id in list.ids) ?byId[id]];
+  }
+
+  /// Дохиог жагсаалтад нэмнэ ([on] = false бол хасна). «Миний дохио»-д байхгүй бол
+  /// тэнд мөн нэмнэ.
+  void setInList(String listId, SignPhrase phrase, bool on) {
+    if (on && !phrases.any((p) => p.id == phrase.id)) {
+      phrases = [...phrases, phrase];
+    }
+    signLists = [
+      for (final l in signLists)
+        if (l.id != listId)
+          l
+        else
+          l.withIds([...l.ids.where((i) => i != phrase.id), if (on) phrase.id]),
+    ];
+    _changed();
+  }
+
+  /// «Ажил дээр» жагсаалтад толь бичгийн «Хөдөлмөр эрхлэлт» сэдвийн дохиог нэг удаа
+  /// нэмнэ. Хэрэглэгч жагсаалтаа устгасан бол юу ч нэмэхгүй.
+  void expandWorkList(List<SignPhrase> signs) {
+    if (workExpanded) return;
+    workExpanded = true;
+    if (signLists.any((l) => l.id == 'work')) {
+      final have = {for (final p in phrases) p.id};
+      phrases = [...phrases, ...signs.where((s) => !have.contains(s.id))];
+      signLists = [
+        for (final l in signLists)
+          if (l.id != 'work')
+            l
+          else
+            l.withIds([
+              ...l.ids,
+              for (final s in signs)
+                if (!l.ids.contains(s.id)) s.id,
+            ]),
+      ];
+    }
+    _changed();
+  }
+
+  /// Шинэ жагсаалт үүсгэнэ. Хоосон эсвэл давхардсан нэртэй бол null.
+  SignList? addSignList(String name) {
+    final clean = name.trim();
+    if (clean.isEmpty ||
+        signLists.any((l) => l.name.toLowerCase() == clean.toLowerCase())) {
+      return null;
+    }
+    final list = SignList(
+      'list_${DateTime.now().microsecondsSinceEpoch}',
+      clean,
+      const [],
+      color: nextListColor(signLists),
+    );
+    signLists = [...signLists, list];
+    _changed();
+    return list;
+  }
+
+  /// Жагсаалтыг устгана. Дохионууд «Миний дохио»-д хэвээр үлдэнэ.
+  void removeSignList(String id) {
+    signLists = signLists.where((l) => l.id != id).toList();
     _changed();
   }
 

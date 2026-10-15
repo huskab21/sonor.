@@ -380,6 +380,8 @@ class _FinderScreenState extends State<FinderScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: backButton(context),
+          leadingWidth: backWidth,
           title: const SText('Чимээний зүг'),
           backgroundColor: Colors.transparent,
           actions: [

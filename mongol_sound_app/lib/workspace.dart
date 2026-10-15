@@ -240,6 +240,8 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: backButton(context),
+          leadingWidth: backWidth,
           title: const SText('Workspace'),
           backgroundColor: Colors.transparent,
           actions: [

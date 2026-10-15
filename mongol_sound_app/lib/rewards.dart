@@ -46,7 +46,14 @@ rewardTasks = [
 Widget _page(String title, List<Widget> children) => Backdrop(
   child: Scaffold(
     backgroundColor: Colors.transparent,
-    appBar: AppBar(title: SText(title), backgroundColor: Colors.transparent),
+    appBar: AppBar(
+      leading: Builder(
+        builder: (context) => backButton(context) ?? const SizedBox(),
+      ),
+      leadingWidth: backWidth,
+      title: SText(title),
+      backgroundColor: Colors.transparent,
+    ),
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

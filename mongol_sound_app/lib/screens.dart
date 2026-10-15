@@ -20,6 +20,8 @@ class _Page extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          leading: backButton(context),
+          leadingWidth: backWidth,
           title: SText(title),
           backgroundColor: Colors.transparent,
         ),
@@ -319,6 +321,22 @@ class SoundsScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (settings.falseAlarmCount > 0)
+            Glass(
+              child: ListTile(
+                leading: const Icon(Icons.thumb_down_outlined),
+                title: SText(
+                  'Буруу гэж тэмдэглэсэн: ${settings.falseAlarmCount}',
+                ),
+                subtitle: const SText(
+                  'Ийм чимээнд дохио өгөхгүй байгаа. Жинхэнэ чимээг андуурсан бол арилгана.',
+                ),
+                trailing: TextButton(
+                  onPressed: settings.clearFalseAlarms,
+                  child: const SText('Арилгах'),
+                ),
+              ),
+            ),
           const _Hint(
             '«+» товчоор чимээг өөрийн гэрт яг яаж сонсогддогоор нь 3–5 удаа бичүүлж зааж болно. '
             'Заасан чимээг апп илүү сайн танина.',
@@ -364,8 +382,9 @@ class SoundsScreen extends StatelessWidget {
             ),
           ],
           const _Hint(
-            'Таних ажиллагаа бүхэлдээ утсан дээр хийгдэнэ. Дуу бичлэг хадгалагдахгүй, хаашаа ч '
-            'илгээгдэхгүй. Заасан чимээнээс зөвхөн тоон хээ нь утсанд үлдэнэ.',
+            'Таних ажиллагаа бүхэлдээ утсан дээр хийгдэнэ. Дуу хаашаа ч илгээгдэхгүй. Заасан '
+            'чимээнээс зөвхөн тоон хээ нь утсанд үлдэнэ. Дохион дээр «Буруу» дарвал тэр 1.5 '
+            'секундийн дуу таних чадварыг сайжруулахад зориулж утсанд хадгалагдана.',
           ),
         ],
       ),

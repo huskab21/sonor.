@@ -12,6 +12,7 @@ import 'notifier.dart';
 import 'phrasebook.dart';
 import 'screens.dart';
 import 'settings.dart';
+import 'false_alarm_stub.dart' if (dart.library.ffi) 'false_alarm.dart';
 import 'sound_engine_stub.dart' if (dart.library.ffi) 'sound_engine.dart';
 import 'sounds.dart';
 import 'standby.dart';
@@ -154,6 +155,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
   bool _standby =
       false; // хүлээх горим: харанхуй дэлгэц, дохиогоор өнгөөр анивчина
   int _tab = 0; // доод цэсний сонгосон хуудас
+  final List<int> _tabHistory = []; // «Буцах» товчинд: өмнө үзсэн хуудсууд
   final List<WorkspaceMessage> _workspace = []; // Workspace хуудасны яриа
   late final SoundEngine _engine = SoundEngine(
     settings: _settings,
@@ -161,6 +163,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
     onLevel: _onLevel,
   );
   final List<Detection> _history = [];
+  final Set<Detection> _reported = {}; // «Буруу» гэж тэмдэглэсэн дохионууд
   final List<SoundFix> _fixes = []; // «Чимээний зүг» хуудасны түүх: чимээ + хүч
   final List<double> _recentLevels = []; // сүүлийн 1.5 секундийн түвшин
   String? _error;
@@ -280,6 +283,48 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
     );
   }
 
+  /// «Буруу дохио»: дууг сургалтад хадгалж, чимээ бол ийм чимээг цаашид дарна
+  /// (яаралтай чимээнээс бусад).
+  Future<void> _reportFalse(Detection d) async {
+    if (!_reported.add(d)) return;
+    setState(() {
+      if (_flash == d) _flash = null;
+    });
+    final id = d.id, embedding = d.embedding;
+    final suppress = !d.isName && !d.urgent && id != null && embedding != null;
+    if (suppress) _settings.addFalseAlarm(id, embedding);
+    await saveFalseAlarmClip(d);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: SText(
+          d.isName
+              ? 'Баярлалаа. Энэ дууг нэр таних загварын дараагийн сургалтад '
+                    '«нэр биш» жишээ болгоно.'
+              : suppress
+              ? 'Ойлголоо: ийм чимээнд дахиж дохио өгөхгүй. '
+                    'Тохиргоо > Чимээ таних хэсгээс буцаана.'
+              : d.urgent
+              ? 'Яаралтай чимээ тул дохио хэвээр өгнө. Бичлэгийг хадгаллаа.'
+              : 'Тэмдэглэлээ.',
+        ),
+      ),
+    );
+  }
+
+  void _openTab(int i) {
+    if (i == _tab) return;
+    setState(() {
+      _tabHistory
+        ..remove(i)
+        ..add(_tab);
+      _tab = i;
+    });
+  }
+
+  void _back() =>
+      setState(() => _tab = _tabHistory.isEmpty ? 0 : _tabHistory.removeLast());
+
   String _clock(DateTime t) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
@@ -296,7 +341,17 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
     // Дохио ирэхэд дэлгэц бүтнээрээ чимээний өнгөөр гурван удаа анивчина
     return Stack(
       children: [
-        _app(context),
+        // Доод цэсний хуудсууд «Буцах» товчоор өмнөх хуудас руугаа очно
+        TabBack(
+          onBack: _tab == 0 ? null : _back,
+          child: PopScope(
+            canPop: _tab == 0,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) _back();
+            },
+            child: _app(context),
+          ),
+        ),
         Positioned.fill(child: ColorFlash(flash: _flash)),
       ],
     );
@@ -321,7 +376,7 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
             (Icons.person_outline, 'Тохиргоо'),
           ],
           index: _tab,
-          onTap: (i) => setState(() => _tab = i),
+          onTap: _openTab,
         ),
         body: switch (_tab) {
           1 => SoundsScreen(settings: _settings, engine: _engine),
@@ -485,6 +540,18 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                                       ),
                                                     ),
                                                   ),
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        _reportFalse(flash),
+                                                    style: TextButton.styleFrom(
+                                                      foregroundColor: flashInk,
+                                                      backgroundColor: flashInk
+                                                          .withValues(
+                                                            alpha: 0.12,
+                                                          ),
+                                                    ),
+                                                    child: const SText('Буруу'),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -525,9 +592,30 @@ class _SoundDetectorScreenState extends State<SoundDetectorScreen>
                                             ? TextStyle(color: faint)
                                             : null,
                                       ),
-                                      trailing: SText(
-                                        _clock(d.time),
-                                        style: TextStyle(color: faint),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SText(
+                                            _clock(d.time),
+                                            style: TextStyle(color: faint),
+                                          ),
+                                          if (!d.guess)
+                                            IconButton(
+                                              tooltip: 'Буруу дохио',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              icon: Icon(
+                                                _reported.contains(d)
+                                                    ? Icons.thumb_down
+                                                    : Icons.thumb_down_outlined,
+                                                size: 18,
+                                                color: faint,
+                                              ),
+                                              onPressed: _reported.contains(d)
+                                                  ? null
+                                                  : () => _reportFalse(d),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                 ],

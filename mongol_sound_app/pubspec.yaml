@@ -45,6 +45,7 @@ dependencies:
   http: ^1.6.0
   camera: ^0.12.1
   video_player: ^2.14.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

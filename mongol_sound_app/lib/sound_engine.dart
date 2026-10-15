@@ -409,6 +409,7 @@ class SoundEngine {
             );
         if (best >= threshold || steady) {
           if (steady) _sustain.reset(event.id);
+          if (!event.urgent && _markedFalse(event.id)) continue;
           fired = true;
           _alert(
             Detection(
@@ -417,6 +418,8 @@ class SoundEngine {
               best,
               urgent: event.urgent,
               mark: event.mark,
+              id: event.id,
+              embedding: _embeddingCopy(),
             ),
           );
         }
@@ -438,6 +441,7 @@ class SoundEngine {
       _prevCustomScore[id] = score;
       if (score < threshold || prev < threshold) continue;
       final event = soundEvents.where((e) => e.id == id).firstOrNull;
+      if (event?.urgent != true && _markedFalse(id)) continue;
       if (event != null) {
         _alert(
           Detection(
@@ -446,13 +450,23 @@ class SoundEngine {
             score,
             urgent: event.urgent,
             mark: event.mark,
+            id: id,
+            embedding: _embeddingCopy(),
           ),
         );
         continue;
       }
       final custom = settings.customSounds.where((c) => c.id == id).firstOrNull;
       if (custom != null) {
-        _alert(Detection(customSoundIcon, custom.label, score));
+        _alert(
+          Detection(
+            customSoundIcon,
+            custom.label,
+            score,
+            id: id,
+            embedding: _embeddingCopy(),
+          ),
+        );
       }
     }
   }
@@ -475,10 +489,29 @@ class SoundEngine {
     );
   }
 
+  /// Хэрэглэгч «Буруу» гэж тэмдэглэсэн чимээтэй одоогийн чимээ төстэй эсэх.
+  bool _markedFalse(String id) {
+    final marked = settings.falseAlarms[id];
+    if (marked == null || _embeddingOutput == null) return false;
+    for (final e in marked) {
+      var dot = 0.0;
+      for (var i = 0; i < e.length; i++) {
+        dot += e[i] * _embedding[i];
+      }
+      if (dot >= falseAlarmSimilarity) return true;
+    }
+    return false;
+  }
+
+  Float32List? _embeddingCopy() =>
+      _embeddingOutput == null ? null : Float32List.fromList(_embedding);
+
   void _alert(Detection d, {Duration wait = cooldown}) {
     final last = _lastHit[d.label];
     if (last != null && d.time.difference(last) < wait) return;
     _lastHit[d.label] = d.time;
+    // «Буруу» дарвал сургалтад хадгалах дуу (сүүлийн 1.5 сек)
+    if (!d.guess) _latest(d.audio = Float32List(nameSamples));
     onDetection(d);
   }
 }

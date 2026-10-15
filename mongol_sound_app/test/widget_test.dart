@@ -9,9 +9,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mongol_sound_app/auth.dart';
 import 'package:mongol_sound_app/few_shot.dart';
 import 'package:mongol_sound_app/finder.dart';
+import 'package:mongol_sound_app/lessons.dart';
 import 'package:mongol_sound_app/phrasebook.dart';
+import 'package:mongol_sound_app/sentence.dart';
 import 'package:mongol_sound_app/settings.dart';
 import 'package:mongol_sound_app/sign.dart';
+import 'package:mongol_sound_app/sign_cache.dart';
+import 'package:mongol_sound_app/sign_catalog.dart';
 import 'package:mongol_sound_app/speaker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -210,6 +214,238 @@ void main() {
     expect(merged.length, 51);
     expect(merged.where((p) => p.id == 137).length, 1);
   });
+
+  test('Дохионы жагсаалт: демо, зүрхлэх, хасах, шинэ жагсаалт', () {
+    SharedPreferences.setMockInitialValues({});
+    final settings = AppSettings();
+    final ids = {for (final p in demoPhrases) p.id};
+    for (final l in demoSignLists) {
+      expect(ids.containsAll(l.ids), isTrue, reason: l.name); // демо 50-аас
+    }
+    final work = settings.signLists.firstWhere((l) => l.id == 'work');
+    expect(settings.phrasesIn(work).length, work.ids.length);
+
+    // Жагсаалтад нэмэхэд «Бүгд»-д байхгүй бол тэнд мөн нэмэгдэнэ
+    const perfume = SignPhrase(1054, 'үнэртэй ус', 'v', 'p');
+    settings.setInList('fav', perfume, true);
+    expect(settings.phrases.last.id, 1054);
+    expect(settings.heartedPhrases.map((p) => p.id), contains(1054));
+    settings.setInList('fav', perfume, false);
+    expect(settings.heartedPhrases.map((p) => p.id), isNot(contains(1054)));
+
+    final school = settings.addSignList(' Сургууль ')!;
+    expect(school.name, 'Сургууль');
+    expect(settings.addSignList('сургууль'), isNull); // давхардсан нэр
+    settings.setInList(school.id, demoPhrases.first, true);
+
+    // «Бүгд»-ээс хасвал бүх жагсаалтаас хасагдана
+    settings.removePhrase(demoPhrases.first.id);
+    expect(
+      settings.signLists.any((l) => l.ids.contains(demoPhrases.first.id)),
+      isFalse,
+    );
+    settings.removeSignList(school.id);
+    expect(settings.signLists.length, demoSignLists.length);
+  });
+
+  test('Сургалт: үсэг, тоог задлах, хичээл үе шаттай нээгдэх, ⭐', () {
+    final letters = parseLetters(
+      '<video data-src="https://mnsl.mn/v/2.-Б.mp4"> '
+      '<video data-src="https://mnsl.mn/v/1.-А.mp4"> '
+      '<video data-src="https://mnsl.mn/v/1.-А.mp4"> '
+      '<video data-src="https://mnsl.mn/v/Хурууны_үсэг.mp4">',
+    );
+    expect(letters.keys.toList()..sort(), [1, 2]);
+    expect(letters[1]!.title, 'А');
+
+    Map<String, Object> item(String title, String file) => {
+      'title': {'rendered': title},
+      'content': {'rendered': '<video src="https://mnsl.mn/v/$file.mp4">'},
+      'link': 'https://mnsl.mn/too/x/',
+    };
+    final numbers = parseNumbers([
+      item('25. хорин тав (2)', '25_2'),
+      item('25. хорин тав (1)', '25_1'),
+      item('1,000,000. нэг сая', '1m'),
+      item('нэг удаа', '17.1'), // тоо биш
+    ]);
+    expect(numbers.keys.toSet(), {25, 1000000});
+    expect(numbers[25]!.video, endsWith('25_1.mp4')); // эхний хувилбар
+
+    // Хичээлүүд давхардалгүй, үгийн зураг хичээл дотроо давхардахгүй
+    final ids = allLessons.map((l) => l.id).toList();
+    expect(ids.toSet().length, ids.length);
+    for (final l in allLessons) {
+      final pictures = l.words.map((w) => w.$2).toList();
+      expect(pictures.toSet().length, pictures.length, reason: l.id);
+    }
+
+    final first = allLessons[0], second = allLessons[1];
+    expect(lessonUnlocked(first, {}), isTrue);
+    expect(lessonUnlocked(second, {}), isFalse);
+    expect(lessonUnlocked(second, {first.id: 1}), isTrue);
+    expect([starsFor(0), starsFor(2), starsFor(5)], [3, 2, 1]);
+
+    SharedPreferences.setMockInitialValues({});
+    final settings = AppSettings();
+    settings.finishLesson(first.id, 2);
+    settings.finishLesson(first.id, 1); // муу дүн сайныг дарахгүй
+    expect(settings.lessonStars[first.id], 2);
+    final points = settings.points;
+    settings.finishLesson(first.id, 3);
+    expect(settings.points, points); // оноо нэг удаа
+  });
+
+  test('«Буруу» гэж тэмдэглэсэн чимээг хадгалж, дээд хязгаартай, арилгана', () {
+    SharedPreferences.setMockInitialValues({});
+    final settings = AppSettings();
+    for (var i = 0; i < AppSettings.maxFalseAlarms + 5; i++) {
+      settings.addFalseAlarm('doorbell', Float32List.fromList([i.toDouble()]));
+    }
+    final list = settings.falseAlarms['doorbell']!;
+    expect(list.length, AppSettings.maxFalseAlarms);
+    expect(list.last.first, AppSettings.maxFalseAlarms + 4); // хамгийн сүүлийнх
+    expect(settings.falseAlarmCount, AppSettings.maxFalseAlarms);
+    settings.clearFalseAlarms();
+    expect(settings.falseAlarmCount, 0);
+  });
+
+  test('Жагсаалт бүр өөр өнгийн зүрхтэй, өгүүлбэр хадгалагдана', () {
+    SharedPreferences.setMockInitialValues({});
+    final settings = AppSettings();
+    final colors = {for (final l in settings.signLists) l.id: l.color};
+    expect(colors['fav'], 0xFFFF4D6D); // улаан
+    expect(colors['work'], 0xFF34C759); // ногоон
+    final a = settings.addSignList('Эмнэлэг')!;
+    final b = settings.addSignList('Сургууль')!;
+    expect({a.color, b.color}.length, 2);
+    expect(colors.values, isNot(contains(a.color)));
+
+    // Хуучин (өнгөгүй) хадгалсан жагсаалт өнгөтэй уншигдана
+    final old = SignList.fromJson({
+      'id': 'work',
+      'name': 'Ажил дээр',
+      'ids': [1],
+    });
+    expect(old.color, 0xFF34C759);
+
+    // Нэг дохио хоёр жагсаалтад: хоёр өнгө
+    settings.setInList(a.id, demoPhrases.first, true);
+    expect(heartColors(settings)[demoPhrases.first.id]?.length, 2);
+
+    final sentence = SignSentence('s1', [demoPhrases[0], demoPhrases[3]]);
+    expect(sentence.text, 'Сайн байна уу? Баярлалаа');
+    settings.saveSentence(sentence);
+    settings.saveSentence(SignSentence('s1', [demoPhrases[3]])); // засвар
+    expect(settings.sentences.single.words.single.id, demoPhrases[3].id);
+    final again = SignSentence.fromJson(
+      jsonDecode(jsonEncode(settings.sentences.single.toJson()))
+          as Map<String, dynamic>,
+    );
+    expect(again.text, 'Баярлалаа');
+    settings.removeSentence('s1');
+    expect(settings.sentences, isEmpty);
+  });
+
+  test('Зүрхэлсэн дохиог л утсанд хадгалж, хассаныг устгана', () async {
+    final dir = await Directory.systemTemp.createTemp('signs');
+    addTearDown(() => dir.delete(recursive: true));
+    SignCache.folder = () async => dir;
+    var calls = 0;
+    final client = MockClient((req) async {
+      calls++;
+      return req.url.path.contains('broken')
+          ? http.Response('', 404)
+          : http.Response.bytes(List.filled(1000, 7), 200);
+    });
+
+    await SignCache.sync({
+      1: 'https://x/1.mp4',
+      2: 'https://x/broken.mp4',
+    }, client: client);
+    expect(SignCache.saved.value, {1});
+    expect(SignCache.bytes.value, 1000);
+
+    await SignCache.sync({
+      1: 'https://x/1.mp4',
+      3: 'https://x/3.mp4',
+    }, client: client);
+    expect(calls, 3); // 1 дахин татагдаагүй
+    expect(SignCache.saved.value, {1, 3});
+
+    await SignCache.sync({3: 'https://x/3.mp4'}, client: client);
+    expect(SignCache.saved.value, {3});
+    expect(File('${dir.path}/1.mp4').existsSync(), isFalse);
+  });
+
+  test(
+    'Толь бичиг: сэдэв, дохиог уншиж, «Ажил дээр»-т нэг удаа нэмнэ',
+    () async {
+      final client = MockClient((req) async {
+        if (req.url.path.endsWith('/sedev')) {
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode([
+                {'id': 141, 'name': '4. Хөдөлмөр эрхлэлт', 'parent': 0},
+                {'id': 142, 'name': '4.1. Ажил, мэргэжил', 'parent': 141},
+                {'id': 170, 'name': '10.1. Өнгө', 'parent': 169},
+                {'id': 169, 'name': '10. Өнгө ба хэлбэр', 'parent': 0},
+              ]),
+            ),
+            200,
+          );
+        }
+        final page = req.url.queryParameters['page'];
+        Map<String, Object> sign(int id, String title, int topic) => {
+          'title': {'rendered': '$id. $title'},
+          'link': 'https://mnsl.mn/ug/$id/',
+          'content': {'rendered': '<video src="https://mnsl.mn/v/$id.mp4">'},
+          'sedev': [topic],
+        };
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode(
+              page == '1'
+                  ? [
+                      sign(30, 'багш', 142),
+                      sign(5, '&#8220;Диф&#8221; клуб', 141),
+                    ]
+                  : [sign(2, 'улаан', 170)],
+            ),
+          ),
+          200,
+          headers: {'x-wp-totalpages': '2'},
+        );
+      });
+      final catalog = await fetchCatalog(client: client);
+      expect(catalog.signs.map((s) => s.id), [2, 5, 30]); // дугаараар
+      expect(catalog.signs.last.title, 'Багш'); // эхний үсэг том
+      expect(catalog.signs[1].title, '“Диф” клуб');
+      expect(catalog.mainTopics.map((t) => t.name), [
+        'Хөдөлмөр эрхлэлт',
+        'Өнгө ба хэлбэр',
+      ]); // 4 < 10
+      expect(catalog.signsIn(141).map((s) => s.id), [5, 30]); // дэд сэдэв орно
+      expect(catalog.search('ба').first.id, 30);
+
+      final again = SignCatalog.fromJsonString(catalog.toJsonString());
+      expect(again.signsIn(169).single.video, 'https://mnsl.mn/v/2.mp4');
+
+      SharedPreferences.setMockInitialValues({});
+      final settings = AppSettings();
+      settings.expandWorkList(catalog.signsIn(141));
+      final work = settings.signLists.firstWhere((l) => l.id == 'work');
+      expect(work.ids, containsAll([5, 30]));
+      final count = work.ids.length;
+      settings.expandWorkList(
+        catalog.signsIn(141),
+      ); // хоёр дахь удаа юу ч хийхгүй
+      expect(
+        settings.signLists.firstWhere((l) => l.id == 'work').ids.length,
+        count,
+      );
+    },
+  );
 
   test('Чангаар хэлэх: урт бичвэрийг хувааж, WAV-уудыг нэгтгэнэ', () {
     expect(splitForSpeech('  Сайн   байна уу? '), ['Сайн байна уу?']);

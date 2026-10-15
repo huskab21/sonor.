@@ -147,6 +147,12 @@ def make_pos(src):
 def make_neg(src):
     r = rng.random()
     clips, speech, pos = src["neg_clips"], src["speech"], src["pos_me"] + src["pos_tts"]
+    hard = src.get("hard")
+    if hard and r < 0.25:                        # өмнө буруу дохио өгсөн цонх
+        clip = hard[int(rng.integers(len(hard)))] * float(rng.uniform(0.5, 1.5))
+        return np.clip(clip + background(src["bg"]) * 0.5, -1, 1)
+    if hard:
+        r = (r - 0.25) / 0.75                    # бусад төрлийг хуучин харьцаагаар
     if r < 0.30 and clips:                       # төстэй нэр, үг, өгүүлбэр
         return place(clips[int(rng.integers(len(clips)))], src["bg"])
     if r < 0.50 and (speech or clips):           # хүний энгийн яриа
@@ -167,7 +173,7 @@ def make_neg(src):
 
 def load_sources(n_var):
     """Сургалт, шалгалтын эх бичлэгүүдийг тусад нь ачаална (хооронд нь холихгүй)."""
-    tr = {k: [] for k in ("pos_me", "pos_tts", "neg_clips", "speech", "bg")}
+    tr = {k: [] for k in ("pos_me", "pos_tts", "neg_clips", "speech", "bg", "hard")}
     va = {k: [] for k in tr}
 
     for p in sorted((DATA / "tts" / "pos").glob("*.wav")):
@@ -179,11 +185,16 @@ def load_sources(n_var):
     for i, p in enumerate(sorted((DATA / "me" / "pos").glob("*.wav"))):
         is_val = i % 5 == 4
         (va if is_val else tr)["pos_me"] += [load_name(p)] if is_val else variants(load_name(p), n_var)
-    for kind, key in (("speech", "speech"), ("background", "bg")):
+    # Зурагт, радиогийн яриа: энгийн ярианы адил сөрөг жишээ (эхний 80% сургалтад)
+    for kind, key in (("speech", "speech"), ("tv", "speech"), ("background", "bg")):
         for p in sorted((DATA / "me" / kind).glob("*.wav")):
             a, b = split_long(load(p))
             tr[key].append(a)
             va[key].append(b)
+    # Өмнөх загвар буруу дохио өгсөн цонхнууд (eval_stream.py --part train --mine,
+    # аппын «Буруу» товч): хамгийн хэцүү сөрөг жишээ
+    for p in sorted((DATA / "me" / "hard_neg").glob("*.wav")):
+        tr["hard"].append(crop(load(p), WIN))
     return tr, va
 
 

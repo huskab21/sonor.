@@ -103,6 +103,63 @@ class Glass extends StatelessWidget {
   }
 }
 
+/// Доод цэсний хуудаснаас өмнө үзсэн хуудас руу буцах үйлдэл. Нүүр хуудсанд null.
+class TabBack extends InheritedWidget {
+  const TabBack({super.key, required this.onBack, required super.child});
+  final VoidCallback? onBack;
+
+  static VoidCallback? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TabBack>()?.onBack;
+
+  @override
+  bool updateShouldNotify(TabBack old) => old.onBack != onBack;
+}
+
+/// [backButton]-ийн эзлэх өргөн (AppBar-ын `leadingWidth`).
+const double backWidth = 112;
+
+/// Хуудас бүрийн зүүн дээд «‹ Буцах» товч: нээсэн хуудсыг хааж, доод цэсний хуудсанд
+/// өмнөх хуудас руу очно. Буцах газаргүй (нүүр) бол null.
+Widget? backButton(BuildContext context) {
+  final VoidCallback? onBack = (ModalRoute.of(context)?.canPop ?? false)
+      ? () => Navigator.of(context).maybePop()
+      : TabBack.of(context);
+  return onBack == null ? null : BackPill(onPressed: onBack);
+}
+
+class BackPill extends StatelessWidget {
+  const BackPill({super.key, required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = IconTheme.of(context).color ?? inkOf(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          // Дохионы горимд үсгийн зураг товчинд багтахгүй тул зөвхөн сум үлдэнэ
+          label: SignScope.of(context)
+              ? const SizedBox.shrink()
+              : const Text(
+                  'Буцах',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+          style: TextButton.styleFrom(
+            foregroundColor: color,
+            backgroundColor: color.withValues(alpha: 0.10),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: const StadiumBorder(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Дэлгэцийн доор хөвөх дүрсэн цэс. Сонгосон нь нил ягаан дугуйгаар тодорно.
 class NavBar extends StatelessWidget {
   const NavBar({

@@ -5,12 +5,14 @@
   dataset/me/pos/         -> нэр, хочоо дуудсан бичлэгүүд
   dataset/me/speech/      -> нэрийг ХЭЛЭЛГҮЙ ярьсан яриа
   dataset/me/background/  -> өрөөний чимээ (юу ч ярихгүй)
+  dataset/me/tv/          -> зурагт, радио, YouTube-ийн яриа (нэр ороогүй)
 
 Хэрэглээ:
   ./venv/bin/python record_me.py                 # гурвууланг нь дараалан бичнэ
   ./venv/bin/python record_me.py names -n 20     # зөвхөн нэр (нэр бүрийг 20 удаа)
   ./venv/bin/python record_me.py speech          # зөвхөн яриа
   ./venv/bin/python record_me.py background      # зөвхөн орчны чимээ
+  ./venv/bin/python record_me.py tv --seconds 3600   # зурагтын дуу (5 минутаар хадгална)
   ./venv/bin/python record_me.py --who eej       # өөр хүн бичүүлэх үед (файлын нэрэнд орно)
   ./venv/bin/python record_me.py names --name Хүсээ -n 20   # шинэ нэр нэмж, зөвхөн түүнийг бичнэ
 
@@ -133,9 +135,27 @@ def record_background(who, seconds):
     record_long(who, "background", seconds)
 
 
+def record_tv(who, seconds):
+    """Зурагтын дууг 5 минутын хэсгүүдээр бичнэ: Ctrl+C дарвал бичсэн хэсгүүд үлдэнэ."""
+    print(f"\n=== Зурагт, радио ({seconds // 60} минут) ===")
+    print("Зурагт, YouTube, радиогоо ердийн чангаар асаа. Монгол яриа (мэдээ, кино, ток шоу)")
+    print("байвал хамгийн сайн. Таны нэр гарахгүй байх ёстой. Ctrl+C-ээр эрт зогсооно.")
+    input("Бэлэн бол Enter дар...")
+    left = seconds
+    try:
+        while left > 0:
+            part = min(300, left)
+            record_long(who, "tv", part)
+            left -= part
+    except KeyboardInterrupt:
+        sd.stop()
+        print("\nЗогсоолоо (дуусаагүй сүүлийн хэсэг хадгалагдаагүй).")
+    print("Дараа нь: ./venv/bin/python eval_stream.py --part train --mine && ./venv/bin/python train.py")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Сургалтад жинхэнэ хоолой бичих")
-    parser.add_argument("what", nargs="?", default="all", choices=["all", "names", "speech", "background"])
+    parser.add_argument("what", nargs="?", default="all", choices=["all", "names", "speech", "background", "tv"])
     parser.add_argument("-n", type=int, default=20, help="нэр бүрийг хэдэн удаа дуудах")
     parser.add_argument("--seconds", type=int, default=None, help="яриа/орчны бичлэгийн урт")
     parser.add_argument("--who", default="me", help="хэн бичүүлж байгаа (файлын нэрэнд орно)")
@@ -151,6 +171,9 @@ def main():
         record_speech(args.who, args.seconds or 90)
     if args.what in ("all", "background"):
         record_background(args.who, args.seconds or 30)
+    if args.what == "tv":
+        record_tv(args.who, args.seconds or 1800)
+        return
     print("\n🎉 Боллоо. Дараа нь: ./venv/bin/python train.py")
 
 

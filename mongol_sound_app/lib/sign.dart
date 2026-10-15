@@ -66,15 +66,28 @@ class SignScope extends InheritedWidget {
 /// Аппын бичвэр. Энгийн үед [Text]-тэй адил; дохионы горимд кирилл үсэг бүрийг
 /// хурууны дохионы зургаар солино. Тоо, цэг таслал, латин үсэг хэвээр үлдэнэ.
 class SText extends StatelessWidget {
-  const SText(this.data, {super.key, this.style, this.textAlign});
+  const SText(
+    this.data, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.maxLines,
+  });
   final String data;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final int? maxLines; // давбал «…»-ээр таслана
 
   @override
   Widget build(BuildContext context) {
     if (!SignScope.of(context)) {
-      return Text(data, style: style, textAlign: textAlign);
+      return Text(
+        data,
+        style: style,
+        textAlign: textAlign,
+        maxLines: maxLines,
+        overflow: maxLines == null ? null : TextOverflow.ellipsis,
+      );
     }
     final base = DefaultTextStyle.of(context).style.merge(style);
     // Гарын хэлбэр жижиг үсгийн хэмжээнд танигдахгүй тул бичвэрээс том зурна
@@ -133,6 +146,8 @@ class SText extends StatelessWidget {
       TextSpan(children: spans),
       style: style,
       textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: maxLines == null ? null : TextOverflow.ellipsis,
       semanticsLabel: data,
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +8,10 @@ const int yamnetSamples = 15600; // YAMNet-ийн оролт (0.975 сек)
 const int nameSamples = 24000; // нэр таних загварын оролт (1.5 сек)
 const int hopSamples = 4000; // 0.25 сек тутам шалгана
 const Duration cooldown = Duration(milliseconds: 2500);
+
+/// «Буруу» гэж тэмдэглэсэн чимээтэй embedding-ийн ижил төстэй байдал (косинус) үүнээс
+/// их бол дохио өгөхгүй. Өндөр байлгана: жинхэнэ хонхыг дарахгүйн тулд.
+const double falseAlarmSimilarity = 0.9;
 const Duration quietCooldown = Duration(
   seconds: 30,
 ); // тайлбар, чанга чимээний дохио
@@ -329,7 +334,18 @@ class Detection {
     this.urgent = false,
     this.guess = false,
     this.mark,
+    this.id,
+    this.embedding,
   }) : time = DateTime.now();
+
+  /// Каталогийн эсвэл заасан чимээний id (нэрийнх null).
+  final String? id;
+
+  /// Дохио өгөх үеийн YAMNet embedding: «Буруу» дарвал ийм чимээг дахин дарна.
+  final Float32List? embedding;
+
+  /// Дохио өгөх үеийн сүүлийн 1.5 сек дуу: «Буруу» дарвал сургалтад хадгална.
+  Float32List? audio;
 
   /// Мэдэгдлийн гарчигт тавих өнгөт тэмдэг (нэр ⚪, гал 🔴, ус 🔵, тогших 🟤).
   final String? mark;
